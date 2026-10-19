@@ -1,4 +1,4 @@
-"""Tests for GeoDrafter Coordinate Capture."""
+"""Tests for GeoDrafter Coordinates."""
 
 import os
 
@@ -6,9 +6,9 @@ import pytest
 
 from conftest import ROOT, needs_qgis
 
-from geodrafter_coordinate_capture import coordfmt as c
+from geodrafter_coordinates import coordfmt as c
 
-PLUGIN_DIR = os.path.join(ROOT, "plugins", "geodrafter_coordinate_capture")
+PLUGIN_DIR = os.path.join(ROOT, "plugins", "geodrafter_coordinates")
 
 # Reference values from pyproj (EPSG:326xx/327xx), 2026-10-17
 UTM_REF = [
@@ -45,77 +45,12 @@ def test_formats():
     assert keys == ["dd", "dms", "ddm", "utm", "mgrs"]
 
 
-def test_metadata_credits_original_author():
-    from geodrafter_common.metadata import check_metadata, read_metadata
-    meta = read_metadata(PLUGIN_DIR)
-    assert check_metadata(meta) == []
-    assert "Stefanos Natsis" in meta["about"]
-    assert "uclaros/qgis_coordinate_capture" in meta["about"]
-    for name in ("capture.py", "plugin.py", "README.md"):
-        assert "Stefanos Natsis" in open(os.path.join(PLUGIN_DIR, name), encoding="utf-8").read()
-
-
-@needs_qgis
-def test_computer_and_dock(qapp):
-    from qgis.core import QgsCoordinateReferenceSystem, QgsPointXY
-    from geodrafter_coordinate_capture.capture import CaptureDock, CoordinateComputer
-
-    comp = CoordinateComputer()
-    comp.map_crs = QgsCoordinateReferenceSystem("EPSG:25832")
-    comp.user_crs = QgsCoordinateReferenceSystem("EPSG:3857")
-    out = comp.compute(QgsPointXY(481751.237, 6311860.222))
-    assert out["map"] == "481751.237, 6311860.222  (EPSG:25832)"
-    assert out["user"].endswith("(EPSG:3857)")
-    assert out["dd"] == "56.950000, 8.700000"
-    assert out["mgrs"] == "32V MJ 81751 11860"
-
-    dock = CaptureDock()
-    dock.set_values(out)
-    assert dock.text_of("utm") == "32V 481751 E 6311860 N"
-    assert dock.copy("mgrs") == "32V MJ 81751 11860"
-    from qgis.PyQt.QtGui import QGuiApplication
-    assert QGuiApplication.clipboard().text() == "32V MJ 81751 11860"
-    assert "MGRS: 32V MJ 81751 11860" in dock.copy_all()
-
-
-@needs_qgis
-def test_plugin_flow(qapp):
-    from qgis.core import QgsCoordinateReferenceSystem, QgsPointXY, QgsSettings
-    from qgis.gui import QgsMapCanvas
-    from qgis_fakes import fake_iface
-    import geodrafter_coordinate_capture as pkg
-
-    QgsSettings().setValue("geodrafter/coordinate_capture/crs", "EPSG:4326")
-    canvas = QgsMapCanvas()
-    canvas.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
-    iface = fake_iface(canvas, None)
-    plugin = pkg.classFactory(iface)
-    plugin.initGui()
-    plugin.action.trigger()                       # opens the dock
-    assert plugin.dock is not None
-    plugin.dock.capture_button.setChecked(True)   # starts the map tool
-    assert canvas.mapTool() is plugin.tool
-    idx = plugin.dock.copy_on_click.findData("dd")
-    plugin.dock.copy_on_click.setCurrentIndex(idx)
-    plugin.on_click(QgsPointXY(481751.237, 6311860.222))
-    assert plugin.dock.text_of("user") == "56.950000, 8.700000  (EPSG:4326)"
-    from qgis.PyQt.QtGui import QGuiApplication
-    assert QGuiApplication.clipboard().text() == "56.950000, 8.700000"
-    plugin.dock.crs_widget.setCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
-    assert plugin.dock.text_of("user").startswith("481751.237, 6311860.222")
-    assert QgsSettings().value("geodrafter/coordinate_capture/crs") == "EPSG:25832"
-    plugin.dock.capture_button.setChecked(False)
-    assert canvas.mapTool() is None
-    plugin.unload()
-    assert iface.menu == [] and plugin.dock is None
-
-
 # -- Go to: typed coordinates ---------------------------------------------------
 
 def test_parse_round_trips_every_dock_format():
     """Whatever the dock shows can be pasted back into Go to."""
     import random
-    from geodrafter_coordinate_capture import coordparse as p
+    from geodrafter_coordinates import coordparse as p
 
     rnd = random.Random(7)
     for _ in range(2000):
@@ -143,13 +78,13 @@ def test_parse_round_trips_every_dock_format():
     ("57 02 53.4 9 55 6.12", 57.048167, 9.918367),
 ])
 def test_parse_angles(text, lat, lon):
-    from geodrafter_coordinate_capture import coordparse as p
+    from geodrafter_coordinates import coordparse as p
     r = p.parse(text)
     assert r["kind"] == "wgs84" and abs(r["lat"] - lat) < 1e-5 and abs(r["lon"] - lon) < 1e-5
 
 
 def test_parse_numbers_utm_mgrs_and_errors():
-    from geodrafter_coordinate_capture import coordparse as p
+    from geodrafter_coordinates import coordparse as p
     assert p.parse("57,0488 9,9217") == {"kind": "xy", "a": 57.0488, "b": 9.9217}
     assert p.parse("552000,6320000") == {"kind": "xy", "a": 552000.0, "b": 6320000.0}
     assert p.parse("552000.5; 6320000") == {"kind": "xy", "a": 552000.5, "b": 6320000.0}
@@ -164,34 +99,80 @@ def test_parse_numbers_utm_mgrs_and_errors():
             p.parse(bad)
 
 
+def test_metadata_is_own_work():
+    from geodrafter_common.metadata import check_metadata, read_metadata
+    meta = read_metadata(PLUGIN_DIR)
+    assert check_metadata(meta) == []
+    assert meta["name"] == "GeoDrafter Coordinates"
+    assert meta["homepage"] == "https://geodrafter.com/qgis/coordinates/"
+    for name in os.listdir(PLUGIN_DIR):
+        if name.endswith((".py", ".txt", ".md")) and name != "TESTING.md":
+            text = open(os.path.join(PLUGIN_DIR, name), encoding="utf-8").read()
+            assert "Natsis" not in text and "Coordinate Capture" not in text, name
+
+
 @needs_qgis
-def test_resolve_typed(qapp):
+def test_readout_rows(qapp):
+    from qgis.core import QgsCoordinateReferenceSystem as Crs, QgsPointXY
+    from geodrafter_coordinates.readout import Readout
+
+    r = Readout(Crs("EPSG:25832"), Crs("EPSG:3857"))
+    rows = {k: t for k, _l, t in r.rows(QgsPointXY(481751.237, 6311860.222))}
+    assert rows["map"] == "481751.237, 6311860.222  (EPSG:25832)"
+    assert rows["chosen"].endswith("(EPSG:3857)")
+    assert rows["dd"] == "56.950000, 8.700000"
+    assert rows["utm"] == "32V 481751 E 6311860 N"
+    assert rows["mgrs"] == "32V MJ 81751 11860"
+    assert [k for k, _l in r.keys_and_labels()] == ["map", "chosen", "dd", "dms", "ddm", "utm", "mgrs"]
+
+
+@needs_qgis
+def test_locate(qapp):
     from qgis.core import QgsCoordinateReferenceSystem as Crs
-    from geodrafter_coordinate_capture.capture import resolve_typed
+    from geodrafter_coordinates.readout import locate
 
     m = Crs("EPSG:25832")
-    pt, how = resolve_typed("32V MJ 81751 11860", Crs("EPSG:4326"), m)
+    pt, how = locate("32V MJ 81751 11860", Crs("EPSG:4326"), m)
     assert abs(pt.x() - 481751.5) < 1 and abs(pt.y() - 6311860.5) < 1 and "EPSG:32632" in how
-    pt, how = resolve_typed("56.95, 8.7", Crs("EPSG:4326"), m)          # lat, lon
+    pt, _ = locate("56.95, 8.7", Crs("EPSG:4326"), m)
     assert abs(pt.x() - 481751.237) < 0.01 and abs(pt.y() - 6311860.222) < 0.01
-    pt, how = resolve_typed("481751.237 6311860.222", Crs("EPSG:25832"), m)
+    pt, how = locate("481751.237 6311860.222", Crs("EPSG:25832"), m)
     assert abs(pt.x() - 481751.237) < 1e-6 and how == "EPSG:25832"
-    pt, how = resolve_typed("56.95, 8.7", Crs("EPSG:25832"), m)         # small numbers -> lat, lon
+    pt, how = locate("56.95, 8.7", Crs("EPSG:25832"), m)
     assert abs(pt.x() - 481751.237) < 0.01 and "WGS84" in how
-    pt, _ = resolve_typed("56°57′00″N 8°42′00″E", Crs("EPSG:3857"), m)
-    assert abs(pt.x() - 481751.237) < 0.01
     with pytest.raises(ValueError):
-        resolve_typed("95, 10", Crs("EPSG:4326"), m)
+        locate("95, 10", Crs("EPSG:4326"), m)
 
 
 @needs_qgis
-def test_plugin_go_to(qapp):
-    from qgis.core import QgsCoordinateReferenceSystem, QgsRectangle, QgsSettings
-    from qgis.gui import QgsMapCanvas
-    from qgis_fakes import fake_iface
-    import geodrafter_coordinate_capture as pkg
+def test_panel_copy(qapp):
+    from qgis.PyQt.QtGui import QGuiApplication
+    from geodrafter_coordinates.panel import CoordinatesPanel
 
-    QgsSettings().setValue("geodrafter/coordinate_capture/crs", "EPSG:4326")
+    p = CoordinatesPanel([("map", "Map CRS"), ("mgrs", "MGRS")])
+    p.show_rows([("map", "Map CRS", "1, 2  (EPSG:25832)"), ("mgrs", "MGRS", "32V MJ 81751 11860")])
+    assert p.copy_key("mgrs") == "32V MJ 81751 11860"
+    assert QGuiApplication.clipboard().text() == "32V MJ 81751 11860"
+    p.table.setCurrentCell(0, 1)
+    assert p.copy_selected() == "1, 2  (EPSG:25832)"
+    assert p.copy_all() == "Map CRS: 1, 2  (EPSG:25832)\nMGRS: 32V MJ 81751 11860"
+    got = []
+    p.go_requested.connect(got.append)
+    p.go_field.setText("57, 10")
+    p.go_field.returnPressed.emit()
+    assert got == ["57, 10"]
+
+
+@needs_qgis
+def test_plugin_flow(qapp):
+    from qgis.core import QgsCoordinateReferenceSystem, QgsPointXY, QgsRectangle, QgsSettings
+    from qgis.gui import QgsMapCanvas
+    from qgis.PyQt.QtGui import QGuiApplication
+    from qgis_fakes import fake_iface
+    import geodrafter_coordinates as pkg
+
+    QgsSettings().setValue("geodrafter/coordinates/chosen_crs", "EPSG:4326")
+    QgsSettings().setValue("geodrafter/coordinates/copy_on_pick", "dd")
     canvas = QgsMapCanvas()
     canvas.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
     canvas.resize(400, 300)
@@ -199,16 +180,38 @@ def test_plugin_go_to(qapp):
     iface = fake_iface(canvas, None)
     plugin = pkg.classFactory(iface)
     plugin.initGui()
-    assert plugin.action in iface.pluginToolBar().actions()      # on QGIS' Plugins toolbar
-    plugin.action.trigger()
-    plugin.dock.goto_edit.setText("56.95, 8.7")
-    plugin.dock.goto_edit.returnPressed.emit()                    # Enter = Go
-    c_ = canvas.center()
-    assert abs(c_.x() - 481751.237) < 0.5 and abs(c_.y() - 6311860.222) < 0.5
-    assert plugin.dock.text_of("mgrs") == "32V MJ 81751 11860"
-    assert plugin.tool.marker.isVisible()
-    plugin.dock.goto_edit.setText("nonsense")
-    assert plugin.go_to() is None                                 # warning, no move
+    assert plugin.panel_action in iface.pluginToolBar().actions()
+    assert len(iface.menu) == 2                       # Coordinates + About
+    plugin.panel_action.trigger()                     # opens the panel
+    assert plugin.panel is not None and plugin.panel_action.isChecked()
+
+    plugin.panel.pick_button.setChecked(True)
+    assert canvas.mapTool() is plugin.tool
+    plugin.tool.picked.emit(QgsPointXY(481751.237, 6311860.222))
+    assert plugin.panel.value("chosen") == "56.950000, 8.700000  (EPSG:4326)"
+    assert QGuiApplication.clipboard().text() == "56.950000, 8.700000"   # copy on pick
+    assert plugin.marker.is_shown()
+
+    plugin.panel.crs_picker.setCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
+    assert plugin.panel.value("chosen").startswith("481751.237, 6311860.222")
+    assert QgsSettings().value("geodrafter/coordinates/chosen_crs") == "EPSG:25832"
+
+    plugin.panel.follow_button.setChecked(True)
+    plugin.tool.hovered.emit(QgsPointXY(500000, 6200000))
+    assert plugin.panel.value("map").startswith("500000.000, 6200000.000")
+    canvas.unsetMapTool(plugin.tool)                  # e.g. right click / Esc / another tool
+    assert not plugin.panel.pick_button.isChecked() and not plugin.panel.follow_button.isChecked()
+
+    plugin.panel.crs_picker.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
+    plugin.panel.go_field.setText("56.95, 8.7")
+    plugin.panel.go_field.returnPressed.emit()
+    c = canvas.center()
+    assert abs(c.x() - 481751.237) < 0.5 and abs(c.y() - 6311860.222) < 0.5
+    assert plugin.panel.value("mgrs") == "32V MJ 81751 11860"
+    assert plugin.go_to("nonsense") is None
     assert abs(canvas.center().x() - 481751.237) < 0.5
+
+    QgsSettings().setValue("geodrafter/coordinates/copy_on_pick", "")
     plugin.unload()
+    assert iface.menu == [] and plugin.panel is None
     assert iface.pluginToolBar().actions() == []

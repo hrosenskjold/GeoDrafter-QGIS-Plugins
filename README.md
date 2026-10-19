@@ -7,7 +7,7 @@ built for QGIS 4 (Qt6) and also running on QGIS 3.40:
 |---|---|---|
 | GeoDrafter Pro Trace | ArcGIS Pro-style tracing along all visible layers, no snapping setup | https://geodrafter.com/qgis/pro-trace/ |
 | GeoDrafter Measure | Geodesic distance, area and radius, saved as a layer | https://geodrafter.com/qgis/measure/ |
-| GeoDrafter Coordinate Capture | Coordinates in any CRS, DMS, DDM, UTM and MGRS; go to a typed coordinate | https://geodrafter.com/qgis/coordinate-capture/ |
+| GeoDrafter Coordinates | Positions in any CRS, DD, DMS, DDM, UTM and MGRS; go to a typed coordinate | https://geodrafter.com/qgis/coordinates/ |
 
 Install them from the QGIS Plugin Manager (search for "GeoDrafter").
 Bugs and ideas: [issues](https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues).
@@ -30,7 +30,5 @@ and with python3-qgis when installed; CI also runs them in the official QGIS 4 i
 
 ## Licence
 
-GPL-3.0 (LICENSE) unless a plugin folder carries its own LICENSE (Pro Trace and Measure:
-GPL-2.0-or-later). `geodrafter_common` is GPL-2.0-or-later so it can ship with every plugin.
-GeoDrafter Coordinate Capture is based on Coordinate Capture by Stefanos Natsis
-(https://github.com/uclaros/qgis_coordinate_capture) – see its README.
+Every plugin and `geodrafter_common` are GPL-2.0-or-later (each plugin folder carries its LICENSE);
+the repository as a whole is GPL-3.0 (LICENSE).

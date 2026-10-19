@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 Henrik Rosenskjold (GISkon)
 """Read a typed coordinate for "Go to" – the inverse of coordfmt.
 

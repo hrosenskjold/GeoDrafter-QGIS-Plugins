@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 Henrik Rosenskjold (GISkon)
 """Coordinate formats – a Python port of GeoDrafter's coordinate logic
 (geodrafter.com static/js/geo.js + coordfmt.js): DD, DMS, DDM, UTM (Krüger
