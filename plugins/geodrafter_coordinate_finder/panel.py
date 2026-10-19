@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 Henrik Rosenskjold (GISkon)
-"""The GeoDrafter Coordinates panel: Go to field, pick/follow buttons and a table of formats."""
+"""The GeoDrafter Coordinate Finder and Converter panel.
+
+Go to field, pick/follow buttons and a table of every format.
+"""
 
 from qgis.PyQt.QtCore import Qt, QUrl, pyqtSignal
 from qgis.PyQt.QtGui import QDesktopServices, QGuiApplication, QKeySequence
@@ -38,8 +41,8 @@ class CoordinatesPanel(QgsDockWidget):
     def __init__(self, rows, parent=None):
         """``rows`` = [(key, label)] in display order (see Readout.keys_and_labels)."""
         super().__init__(parent)
-        self.setObjectName("GeoDrafterCoordinatesPanel")
-        self.setWindowTitle(self.tr("GeoDrafter Coordinates"))
+        self.setObjectName("GeoDrafterCoordinateFinderPanel")
+        self.setWindowTitle(self.tr("Coordinate Finder and Converter"))
         self._keys = [key for key, _label in rows]
 
         page = QWidget(self)

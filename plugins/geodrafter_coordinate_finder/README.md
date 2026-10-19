@@ -1,6 +1,6 @@
-# GeoDrafter Coordinates
+# GeoDrafter Coordinate Finder and Converter
 
-A QGIS panel that shows a map position in every common format at once – and goes to a position you type. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+Find and convert coordinates in QGIS: a panel that shows a map position in every common format at once – and goes to a position you type. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
 
 - **Pick on map**: click to read a position; **Follow mouse** updates while you move. Right click or Esc stops.
 - **Formats**: map CRS, a CRS you choose (remembered), WGS84 decimal degrees, DMS, DDM, UTM (automatic zone incl. the Norway/Svalbard exceptions) and MGRS (truncated to 1 m, as the standard requires).
@@ -11,4 +11,4 @@ A QGIS panel that shows a map position in every common format at once – and go
 The coordinate formats are a Python port of the logic behind geodrafter.com, checked against PROJ.
 
 Licence: GPL-2.0-or-later (see LICENSE). © 2026 Henrik Rosenskjold (GISkon).
-Plugin page: https://geodrafter.com/qgis/coordinates/ · Source and issues: https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+Plugin page: https://geodrafter.com/qgis/coordinate-finder-and-converter/ · Source and issues: https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins

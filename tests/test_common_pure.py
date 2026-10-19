@@ -27,7 +27,8 @@ license=GPL-2.0-or-later
 
 def test_slug_and_homepage():
     assert links.slug_from_name("GeoDrafter Pro Trace") == "pro-trace"
-    assert links.slug_from_name("GeoDrafter Coordinates") == "coordinates"
+    assert (links.slug_from_name("GeoDrafter Coordinate Finder and Converter")
+            == "coordinate-finder-and-converter")
     assert links.plugin_homepage("measure") == "https://geodrafter.com/qgis/measure/"
     with pytest.raises(ValueError):
         links.plugin_homepage("../evil")
@@ -121,11 +122,11 @@ def test_share_as_web_map_is_hidden_until_publish_is_online():
 
     assert links.PUBLISH_AVAILABLE is False
     root = Path(__file__).resolve().parent.parent
-    for plugin in ("geodrafter_pro_trace", "geodrafter_measure", "geodrafter_coordinates"):
+    for plugin in ("geodrafter_pro_trace", "geodrafter_measure", "geodrafter_coordinate_finder"):
         src = (root / "plugins" / plugin / "plugin.py").read_text(encoding="utf-8")
         assert "PUBLISH_AVAILABLE" in src, plugin  # share action only added when Publish is online
     measure_src = (root / "plugins" / "geodrafter_measure" / "plugin.py").read_text()
     assert "share_button.setVisible(PUBLISH_AVAILABLE)" in measure_src
-    for plugin in ("geodrafter_pro_trace", "geodrafter_measure", "geodrafter_coordinates"):
+    for plugin in ("geodrafter_pro_trace", "geodrafter_measure", "geodrafter_coordinate_finder"):
         meta = (root / "plugins" / plugin / "metadata.txt").read_text(encoding="utf-8").lower()
         assert "share as web map" not in meta and "publish" not in meta, plugin

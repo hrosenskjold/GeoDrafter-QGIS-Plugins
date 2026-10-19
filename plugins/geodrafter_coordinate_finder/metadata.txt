@@ -1,0 +1,22 @@
+[general]
+name=GeoDrafter Coordinate Finder and Converter
+qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Find and convert coordinates: read any map position in the map CRS, a CRS of your choice, decimal degrees, DMS, DDM, UTM and MGRS – or type a coordinate in any of these formats and go there.
+about=A coordinate finder and converter in one panel, with every format at once. Pick a position on the map (or let the panel follow the mouse) and read it in the map CRS, a CRS you choose, WGS84 decimal degrees, degrees-minutes-seconds, degrees-decimal-minutes, UTM (automatic zone including the Norway/Svalbard exceptions) and MGRS. Double click a row or press Ctrl+C to copy it, copy everything at once, or have a chosen format copied with every pick. The Go to field takes the same formats – also with N/S/E/W letters, decimal commas and UTM zone letters – centres the map there and marks the spot, so anything you copy can be pasted back. For converting many coordinates at once, the panel links to the free GeoDrafter coordinate converter (geodrafter.com/coordinate-converter/). Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+version=1.0.0
+author=Henrik Rosenskjold (GISkon)
+email=contact@geodrafter.com
+changelog=1.0.0 (2026-10-19): First release – coordinate panel with map CRS, chosen CRS, DD, DMS, DDM, UTM and MGRS; pick or follow the mouse; copy one, all or on every pick; Go to a typed coordinate.
+tags=coordinates,coordinate,coordinate finder,coordinate converter,convert,crs,dms,ddm,utm,mgrs,go to,clipboard,qgis4,qt6
+homepage=https://geodrafter.com/qgis/coordinate-finder-and-converter/
+repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues
+category=Vector
+icon=icon.svg
+experimental=False
+deprecated=False
+license=GPL-2.0-or-later
+hasProcessingProvider=no
+server=False

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 Henrik Rosenskjold (GISkon)
-"""GeoDrafter Coordinates – connects the panel, the pick tool and the readout."""
+"""GeoDrafter Coordinate Finder and Converter – connects the panel, the pick tool and the readout."""
 
 import os
 
@@ -16,16 +16,16 @@ except ImportError:  # Qt5 / QGIS 3.40
 from .geodrafter_common import PUBLISH_AVAILABLE, share_as_web_map, show_about
 from .geodrafter_common.toolbar import add_to_menu, add_to_toolbar, remove_actions
 
-PLUGIN_NAME = "GeoDrafter Coordinates"
-SETTING_CRS = "geodrafter/coordinates/chosen_crs"
-SETTING_COPY = "geodrafter/coordinates/copy_on_pick"
+PLUGIN_NAME = "GeoDrafter Coordinate Finder and Converter"
+SETTING_CRS = "geodrafter/coordinate_finder/chosen_crs"
+SETTING_COPY = "geodrafter/coordinate_finder/copy_on_pick"
 
 
 def tr(text):
-    return QCoreApplication.translate("GeoDrafterCoordinates", text)
+    return QCoreApplication.translate("GeoDrafterCoordinateFinder", text)
 
 
-class GeoDrafterCoordinatesPlugin:
+class GeoDrafterCoordinateFinderPlugin:
     def __init__(self, iface):
         self.iface = iface
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,13 +42,14 @@ class GeoDrafterCoordinatesPlugin:
     def initGui(self):  # noqa: N802
         window = self.iface.mainWindow()
         icon = QIcon(os.path.join(self.plugin_dir, "icon.svg"))
-        self.panel_action = QAction(icon, tr("Coordinates"), window)
-        self.panel_action.setObjectName("GeoDrafterCoordinatesAction")
+        self.panel_action = QAction(icon, tr("Coordinate Finder"), window)
+        self.panel_action.setObjectName("GeoDrafterCoordinateFinderAction")
         self.panel_action.setCheckable(True)
         self.panel_action.setToolTip(tr(
-            "GeoDrafter Coordinates – read positions in any CRS, DMS, UTM and MGRS, or go to a typed one"))
+            "GeoDrafter Coordinate Finder and Converter – read positions in any CRS, DMS, UTM and MGRS, "
+            "or go to a typed one"))
         self.panel_action.toggled.connect(self.show_panel)
-        about = QAction(tr("About GeoDrafter Coordinates"), window)
+        about = QAction(tr("About GeoDrafter Coordinate Finder and Converter"), window)
         about.triggered.connect(lambda: show_about(window, self.plugin_dir))
         entries = [self.panel_action]
         if PUBLISH_AVAILABLE:

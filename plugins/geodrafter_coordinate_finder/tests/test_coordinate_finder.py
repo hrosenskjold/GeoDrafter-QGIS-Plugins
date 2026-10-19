@@ -1,4 +1,4 @@
-"""Tests for GeoDrafter Coordinates."""
+"""Tests for GeoDrafter Coordinate Finder and Converter."""
 
 import os
 
@@ -6,9 +6,9 @@ import pytest
 
 from conftest import ROOT, needs_qgis
 
-from geodrafter_coordinates import coordfmt as c
+from geodrafter_coordinate_finder import coordfmt as c
 
-PLUGIN_DIR = os.path.join(ROOT, "plugins", "geodrafter_coordinates")
+PLUGIN_DIR = os.path.join(ROOT, "plugins", "geodrafter_coordinate_finder")
 
 # Reference values from pyproj (EPSG:326xx/327xx), 2026-10-17
 UTM_REF = [
@@ -50,7 +50,7 @@ def test_formats():
 def test_parse_round_trips_every_dock_format():
     """Whatever the dock shows can be pasted back into Go to."""
     import random
-    from geodrafter_coordinates import coordparse as p
+    from geodrafter_coordinate_finder import coordparse as p
 
     rnd = random.Random(7)
     for _ in range(2000):
@@ -78,13 +78,13 @@ def test_parse_round_trips_every_dock_format():
     ("57 02 53.4 9 55 6.12", 57.048167, 9.918367),
 ])
 def test_parse_angles(text, lat, lon):
-    from geodrafter_coordinates import coordparse as p
+    from geodrafter_coordinate_finder import coordparse as p
     r = p.parse(text)
     assert r["kind"] == "wgs84" and abs(r["lat"] - lat) < 1e-5 and abs(r["lon"] - lon) < 1e-5
 
 
 def test_parse_numbers_utm_mgrs_and_errors():
-    from geodrafter_coordinates import coordparse as p
+    from geodrafter_coordinate_finder import coordparse as p
     assert p.parse("57,0488 9,9217") == {"kind": "xy", "a": 57.0488, "b": 9.9217}
     assert p.parse("552000,6320000") == {"kind": "xy", "a": 552000.0, "b": 6320000.0}
     assert p.parse("552000.5; 6320000") == {"kind": "xy", "a": 552000.5, "b": 6320000.0}
@@ -103,8 +103,8 @@ def test_metadata_is_own_work():
     from geodrafter_common.metadata import check_metadata, read_metadata
     meta = read_metadata(PLUGIN_DIR)
     assert check_metadata(meta) == []
-    assert meta["name"] == "GeoDrafter Coordinates"
-    assert meta["homepage"] == "https://geodrafter.com/qgis/coordinates/"
+    assert meta["name"] == "GeoDrafter Coordinate Finder and Converter"
+    assert meta["homepage"] == "https://geodrafter.com/qgis/coordinate-finder-and-converter/"
     for name in os.listdir(PLUGIN_DIR):
         if name.endswith((".py", ".txt", ".md")) and name != "TESTING.md":
             text = open(os.path.join(PLUGIN_DIR, name), encoding="utf-8").read()
@@ -114,7 +114,7 @@ def test_metadata_is_own_work():
 @needs_qgis
 def test_readout_rows(qapp):
     from qgis.core import QgsCoordinateReferenceSystem as Crs, QgsPointXY
-    from geodrafter_coordinates.readout import Readout
+    from geodrafter_coordinate_finder.readout import Readout
 
     r = Readout(Crs("EPSG:25832"), Crs("EPSG:3857"))
     rows = {k: t for k, _l, t in r.rows(QgsPointXY(481751.237, 6311860.222))}
@@ -129,7 +129,7 @@ def test_readout_rows(qapp):
 @needs_qgis
 def test_locate(qapp):
     from qgis.core import QgsCoordinateReferenceSystem as Crs
-    from geodrafter_coordinates.readout import locate
+    from geodrafter_coordinate_finder.readout import locate
 
     m = Crs("EPSG:25832")
     pt, how = locate("32V MJ 81751 11860", Crs("EPSG:4326"), m)
@@ -147,7 +147,7 @@ def test_locate(qapp):
 @needs_qgis
 def test_panel_copy(qapp):
     from qgis.PyQt.QtGui import QGuiApplication
-    from geodrafter_coordinates.panel import CoordinatesPanel
+    from geodrafter_coordinate_finder.panel import CoordinatesPanel
 
     p = CoordinatesPanel([("map", "Map CRS"), ("mgrs", "MGRS")])
     p.show_rows([("map", "Map CRS", "1, 2  (EPSG:25832)"), ("mgrs", "MGRS", "32V MJ 81751 11860")])
@@ -169,10 +169,10 @@ def test_plugin_flow(qapp):
     from qgis.gui import QgsMapCanvas
     from qgis.PyQt.QtGui import QGuiApplication
     from qgis_fakes import fake_iface
-    import geodrafter_coordinates as pkg
+    import geodrafter_coordinate_finder as pkg
 
-    QgsSettings().setValue("geodrafter/coordinates/chosen_crs", "EPSG:4326")
-    QgsSettings().setValue("geodrafter/coordinates/copy_on_pick", "dd")
+    QgsSettings().setValue("geodrafter/coordinate_finder/chosen_crs", "EPSG:4326")
+    QgsSettings().setValue("geodrafter/coordinate_finder/copy_on_pick", "dd")
     canvas = QgsMapCanvas()
     canvas.setDestinationCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
     canvas.resize(400, 300)
@@ -181,7 +181,7 @@ def test_plugin_flow(qapp):
     plugin = pkg.classFactory(iface)
     plugin.initGui()
     assert plugin.panel_action in iface.pluginToolBar().actions()
-    assert len(iface.menu) == 2                       # Coordinates + About
+    assert len(iface.menu) == 2                       # Coordinate Finder + About
     plugin.panel_action.trigger()                     # opens the panel
     assert plugin.panel is not None and plugin.panel_action.isChecked()
 
@@ -194,7 +194,7 @@ def test_plugin_flow(qapp):
 
     plugin.panel.crs_picker.setCrs(QgsCoordinateReferenceSystem("EPSG:25832"))
     assert plugin.panel.value("chosen").startswith("481751.237, 6311860.222")
-    assert QgsSettings().value("geodrafter/coordinates/chosen_crs") == "EPSG:25832"
+    assert QgsSettings().value("geodrafter/coordinate_finder/chosen_crs") == "EPSG:25832"
 
     plugin.panel.follow_button.setChecked(True)
     plugin.tool.hovered.emit(QgsPointXY(500000, 6200000))
@@ -211,7 +211,7 @@ def test_plugin_flow(qapp):
     assert plugin.go_to("nonsense") is None
     assert abs(canvas.center().x() - 481751.237) < 0.5
 
-    QgsSettings().setValue("geodrafter/coordinates/copy_on_pick", "")
+    QgsSettings().setValue("geodrafter/coordinate_finder/copy_on_pick", "")
     plugin.unload()
     assert iface.menu == [] and plugin.panel is None
     assert iface.pluginToolBar().actions() == []
