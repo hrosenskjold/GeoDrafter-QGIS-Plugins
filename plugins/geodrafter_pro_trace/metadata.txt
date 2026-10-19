@@ -1,0 +1,22 @@
+[general]
+name=GeoDrafter Pro Trace
+qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Tracing that just works: ArcGIS Pro-style tracing along all visible line and polygon layers – no snapping setup needed.
+about=Click on a line and move the mouse: the shortest path along the visible line and polygon layers is traced and remembered as you go, so it does not jump to a nearby road or boundary. Click off the lines to add freehand vertices – tracing and freehand mix freely. Unlike QGIS' built-in tracing (Shift+T), Pro Trace does not depend on the project's snapping settings: it uses its own snapping on vertices and edges of every visible layer and nodes the lines itself, so it also works when lines nearly overlap. Draws into the active line or polygon layer (starts editing automatically). Enter or right click saves, Backspace undoes, Esc cancels. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+version=1.0.0
+author=Henrik Rosenskjold (GISkon)
+email=contact@geodrafter.com
+changelog=1.0.0 (2026-10-17): First release as GeoDrafter Pro Trace – ported to QGIS 4 (Qt6), English interface, button on the Plugins toolbar, menu under Vector ▸ GeoDrafter.
+tags=digitizing,trace,tracing,snapping,editing,vector,line,polygon,arcgis pro,qgis4,qt6
+homepage=https://geodrafter.com/qgis/pro-trace/
+repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues
+category=Vector
+icon=icon.svg
+experimental=False
+deprecated=False
+license=GPL-2.0-or-later
+hasProcessingProvider=no
+server=False

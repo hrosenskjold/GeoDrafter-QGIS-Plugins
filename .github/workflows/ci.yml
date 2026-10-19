@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flake8
+      - run: make lint qtcheck
+
+  test-qt6:
+    # Pure logic + Qt widgets on PyQt6 (via the qgis.PyQt shim in tests/conftest.py)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+      - run: pip install pytest PyQt6
+      - run: make test
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  test-qgis:
+    # Real QGIS (Qt5, Ubuntu's QGIS 3.34) for the qgis.core parts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y python3-qgis python3-pytest
+      - run: make test PY=/usr/bin/python3
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+  test-qgis4:
+    # QGIS 4 (Qt6) from the official image (qgis/qgis:latest = QGIS 4.x master)
+    runs-on: ubuntu-24.04
+    container: qgis/qgis:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install --break-system-packages pytest || python3 -m pip install pytest
+      - run: python3 -c "from qgis.core import Qgis; print(Qgis.version())"
+      - run: python3 -m pytest -q -rs tests plugins/*/tests
+        env:
+          QT_QPA_PLATFORM: offscreen

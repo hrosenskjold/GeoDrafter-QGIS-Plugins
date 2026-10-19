@@ -1,0 +1,22 @@
+[general]
+name=GeoDrafter Measure
+qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Geodesic distance, area and radius measurement – keep measurements on the map and export them.
+about=Measure distances (with segment lengths), areas (with perimeter) and radius circles on the ellipsoid, whatever the map projection – the same geodesic results as GeoDrafter's web tools (distance calculator, area calculator, radius map). Radius mode draws a true geodesic circle, either dragged with the mouse or from a typed radius such as "5 km" placed with one click. Metric, imperial or fixed units; results can be copied. Finished measurements can be kept on the map in "GeoDrafter distances" / "GeoDrafter areas" layers with their values as attributes or exported to a GeoPackage. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+version=1.0.0
+author=Henrik Rosenskjold (GISkon)
+email=contact@geodrafter.com
+changelog=1.0.0 (2026-10-17): First release.
+tags=measure,measurement,distance,area,radius,circle,buffer,geodesic,ellipsoid,qgis4,qt6
+homepage=https://geodrafter.com/qgis/measure/
+repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues
+category=Vector
+icon=icon.svg
+experimental=False
+deprecated=False
+license=GPL-2.0-or-later
+hasProcessingProvider=no
+server=False

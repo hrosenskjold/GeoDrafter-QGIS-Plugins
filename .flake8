@@ -1,0 +1,6 @@
+[flake8]
+max-line-length = 110
+exclude = .git,__pycache__,build,dist,.venv
+per-file-ignores =
+    tests/*: E402
+    tools/export_public.py: E501
