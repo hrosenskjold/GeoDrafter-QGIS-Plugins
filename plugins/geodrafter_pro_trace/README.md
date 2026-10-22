@@ -4,13 +4,13 @@
 
 ## Why not QGIS' built-in tracing?
 
-QGIS has built-in tracing (Shift+T while digitizing). It works well when your snapping is set up for the right layers. Pro Trace is different in a few ways:
+QGIS has built-in tracing (press T while digitizing). It works well when your snapping is set up for the right layers. Pro Trace is different in a few ways:
 
 | | QGIS built-in tracing | GeoDrafter Pro Trace |
 |---|---|---|
 | Snapping setup | Needs snapping enabled, traces only snapping layers | None – uses its own snapping on the line and polygon layers **switched on in the Layers panel** |
 | Long winding lines | Shortest path from the last vertex; can jump to a more direct road or boundary | Follows the cursor step by step and **remembers** the trace; moving back pulls it in |
-| Freehand | Toggle tracing on/off | Click off the lines to add a freehand vertex – mix freely |
+| Freehand | A click that does not snap adds a straight segment | Click off the lines to add a freehand vertex – mix freely, with a preview of the straight part |
 | Nearly overlapping lines | Graph can silently become empty | Lines are noded first (unary union, grid fallback); tells you if tracing is off |
 | Many features | Turns off above a limit | Also has a limit (30,000 features in view) and tells you to zoom in |
 
