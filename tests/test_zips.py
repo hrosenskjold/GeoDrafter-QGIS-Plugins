@@ -50,8 +50,9 @@ def test_zip_loads_in_qgis(qapp, tmp_path, name):
         plugin = mod.classFactory(iface)
         plugin.initGui()
         # tool + About (Share hidden: PUBLISH_AVAILABLE); Pro Trace sits in the Vector menu
-        assert len(iface.menu) + len(iface.vector_menu) == 2
-        assert len(iface.pluginToolBar().actions()) == 1
+        assert len(iface.menu) + len(iface.vector_menu) == (3 if name == "geodrafter_pro_trace" else 2)
+        # Pro Trace has two tools (trace and split); the others one
+        assert len(iface.pluginToolBar().actions()) == (2 if name == "geodrafter_pro_trace" else 1)
         plugin.unload()
         assert iface.menu == [] and iface.vector_menu == []
         assert iface.pluginToolBar().actions() == []

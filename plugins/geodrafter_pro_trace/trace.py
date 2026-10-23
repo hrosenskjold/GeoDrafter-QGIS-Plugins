@@ -26,7 +26,9 @@ from qgis.core import (
     QgsFeatureRequest,
     QgsFields,
     QgsGeometry,
+    QgsLineString,
     QgsMemoryProviderUtils,
+    QgsPoint,
     QgsPointLocator,
     QgsPointXY,
     QgsProject,
@@ -81,6 +83,10 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
       * Backspace first drops the unlocked trace after the last click, then
         one locked vertex at a time. Esc discards everything.
 
+    With ``mode="split"`` the finished line is not saved as a feature but cuts
+    the features of the active layer it crosses (only the selected ones when
+    there is a selection), like QGIS' Split Features tool – one undo step.
+
     Why step by step: computing the shortest path from the last click on every
     mouse move makes a long, winding stream jump to a road or parcel boundary
     that is more direct, and nothing was remembered in between.
@@ -93,11 +99,14 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
     #: Snapping distance in screen pixels.
     SNAP_TOLERANCE_PX = 12
 
-    def __init__(self, iface):
+    def __init__(self, iface, mode="draw"):
+        if mode not in ("draw", "split"):
+            raise ValueError("mode must be 'draw' or 'split'")
         canvas = iface.mapCanvas()
         super().__init__(canvas, iface.cadDockWidget())
         self.iface = iface
         self.canvas = canvas
+        self.mode = mode
 
         # The network traced along: visible lines and polygon edges in the
         # extent, noded at intersections. See _build_network.
@@ -140,12 +149,15 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
         # "Cannot trace here" is reported once per extent, not on every move.
         self._reported = False
 
+        # Orange when drawing, red when the line will cut features.
+        locked, preview = ((QColor(255, 80, 0, 220), QColor(255, 140, 0, 200)) if mode == "draw"
+                           else (QColor(215, 25, 60, 230), QColor(235, 70, 100, 210)))
         self.band_locked = QgsRubberBand(canvas, LINE)
-        self.band_locked.setColor(QColor(255, 80, 0, 220))
+        self.band_locked.setColor(locked)
         self.band_locked.setWidth(3)
 
         self.band_preview = QgsRubberBand(canvas, LINE)
-        self.band_preview.setColor(QColor(255, 140, 0, 200))
+        self.band_preview.setColor(preview)
         self.band_preview.setLineStyle(Qt.PenStyle.DashLine)
         self.band_preview.setWidth(3)
 
@@ -183,7 +195,10 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
         layer = self.iface.activeLayer()
         ok, kind = self.layer_kind(layer)
         if not ok:
-            self._tell(tr("First select the layer to draw in – a line or polygon layer."))
+            if self.mode == "draw":
+                self._tell(tr("First select the layer to draw in – a line or polygon layer."))
+            else:
+                self._tell(tr("First select the layer to split – a line or polygon layer."))
             self.canvas.unsetMapTool(self)
             return
         if not layer.isEditable() and not layer.startEditing():
@@ -657,6 +672,9 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
     def _finish_sketch(self):
         if self.layer is None:
             return
+        if self.mode == "split":
+            self._split_features()
+            return
         geom = self.sketch_geometry()
         if geom is None:
             self._reset_sketch()
@@ -673,3 +691,50 @@ class TraceTool(QgsMapToolAdvancedDigitizing):
         if map_crs != layer_crs:
             geom.transform(QgsCoordinateTransform(map_crs, layer_crs, QgsProject.instance()))
         return geom
+
+    # ------------------------------------------------------------------
+    # split mode
+    # ------------------------------------------------------------------
+
+    def split_line(self):
+        """The traced line in the layer's CRS, or None if it has fewer than two points."""
+        if len(self.points) < 2:
+            return None
+        return self._to_layer_crs(QgsGeometry.fromPolylineXY(self.points))
+
+    def _split_features(self):
+        """Cut the features of the active layer along the traced line (one undo step)."""
+        line = self.split_line()
+        self._reset_sketch()
+        if line is None:
+            return None
+        points = [QgsPoint(p) for p in line.asPolyline()]
+        topological = QgsProject.instance().topologicalEditing()
+        layer = self.layer
+        before = layer.featureCount()
+        layer.beginEditCommand(tr("Split features with Pro Trace"))
+        try:
+            result = layer.splitFeatures(QgsLineString(points), False, topological)
+        except TypeError:  # bindings without the curve overload
+            result = layer.splitFeatures([QgsPointXY(p.x(), p.y()) for p in points], topological)
+        if isinstance(result, tuple):
+            result = result[0]
+        if result == Qgis.GeometryOperationResult.Success:
+            layer.endEditCommand()
+            self._net_stale = True
+            self.canvas.refresh()
+            added = layer.featureCount() - before
+            self.iface.messageBar().pushMessage(
+                "GeoDrafter Pro Trace", tr("Split – {} new feature(s).").format(max(added, 1)),
+                level=Qgis.MessageLevel.Info, duration=3)
+        else:
+            layer.destroyEditCommand()
+            if result == Qgis.GeometryOperationResult.NothingHappened:
+                self._tell(tr("Nothing was split. The line must cross a feature completely "
+                              "(only selected features are split when there is a selection)."))
+            elif result in (Qgis.GeometryOperationResult.InvalidBaseGeometry,
+                            Qgis.GeometryOperationResult.GeometryEngineError):
+                self._tell(tr("The feature could not be split – its geometry may be invalid."))
+            else:
+                self._tell(tr("Nothing was split ({}).").format(getattr(result, "name", result)))
+        return result

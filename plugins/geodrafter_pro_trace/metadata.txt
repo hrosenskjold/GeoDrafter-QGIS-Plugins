@@ -3,14 +3,15 @@ name=GeoDrafter Pro Trace
 qgisMinimumVersion=3.40
 qgisMaximumVersion=4.99
 supportsQt6=True
-description=Tracing that just works: ArcGIS Pro-style tracing along all visible line and polygon layers – no snapping setup needed.
-about=Click on a line and move the mouse: the shortest path along the visible line and polygon layers is traced and remembered as you go, so it does not jump to a nearby road or boundary. Click off the lines to add freehand vertices – tracing and freehand mix freely. Unlike QGIS' built-in tracing (T), Pro Trace does not depend on the project's snapping settings: it uses its own snapping on vertices and edges of every visible layer and nodes the lines itself, so it also works when lines nearly overlap. Draws into the active line or polygon layer (starts editing automatically). Enter or right click saves, Backspace undoes, Esc cancels. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
-version=1.0.1
+description=Tracing that just works: ArcGIS Pro-style tracing along all visible line and polygon layers – draw new features or split existing ones, no snapping setup needed.
+about=Click on a line and move the mouse: the shortest path along the visible line and polygon layers is traced and remembered as you go, so it does not jump to a nearby road or boundary. Click off the lines to add freehand vertices – tracing and freehand mix freely. Unlike QGIS' built-in tracing (T), Pro Trace does not depend on the project's snapping settings: it uses its own snapping on vertices and edges of every visible layer and nodes the lines itself, so it also works when lines nearly overlap. Draws into the active line or polygon layer (starts editing automatically). Pro Trace Split uses the same tracing to cut existing features: trace across them and press Enter, like QGIS' Split Features tool – only selected features are split when there is a selection, and Ctrl+Z undoes it. Enter or right click saves, Backspace undoes, Esc cancels. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+version=1.1.0
 author=Henrik Rosenskjold (GISkon)
 email=contact@geodrafter.com
-changelog=1.0.1 (2026-10-22): Description corrected – QGIS' built-in tracing is toggled with T. No code changes.
+changelog=1.1.0 (2026-10-23): New Pro Trace Split – cut existing line or polygon features along a traced line (selected features only when there is a selection; one undo step). Thanks to r/QGIS for the idea.
+    1.0.1 (2026-10-22): Description corrected – QGIS' built-in tracing is toggled with T. No code changes.
     1.0.0 (2026-10-17): First release as GeoDrafter Pro Trace – ported to QGIS 4 (Qt6), English interface, button on the Plugins toolbar, menu under Vector ▸ GeoDrafter.
-tags=digitizing,trace,tracing,snapping,editing,vector,line,polygon,arcgis pro,qgis4,qt6
+tags=digitizing,trace,tracing,split,split features,cut,snapping,editing,vector,line,polygon,arcgis pro,qgis4,qt6
 homepage=https://geodrafter.com/qgis/pro-trace/
 repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
 tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues

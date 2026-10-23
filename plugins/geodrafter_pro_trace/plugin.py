@@ -29,7 +29,9 @@ class GeoDrafterProTracePlugin:
         self.plugin_dir = os.path.dirname(os.path.abspath(__file__))
         self.actions = []
         self.trace_action = None
+        self.split_action = None
         self.tool = None
+        self.split_tool = None
 
     def initGui(self):
         icon = QIcon(os.path.join(self.plugin_dir, "icon.svg"))
@@ -42,33 +44,57 @@ class GeoDrafterProTracePlugin:
             "freehand vertex. Enter or right click saves, Backspace undoes, Esc cancels."))
         self.trace_action.triggered.connect(self.run)
 
+        split_icon = QIcon(os.path.join(self.plugin_dir, "icon_split.svg"))
+        self.split_action = QAction(split_icon, tr("Pro Trace Split"), self.iface.mainWindow())
+        self.split_action.setCheckable(True)
+        self.split_action.setObjectName("GeoDrafterProTraceSplitAction")
+        self.split_action.setToolTip(tr(
+            "GeoDrafter Pro Trace Split – cut features of the active layer along a traced line.\n\n"
+            "Trace (or click freehand) across the features, then Enter or right click splits them. "
+            "With a selection, only the selected features are split. Ctrl+Z undoes."))
+        self.split_action.triggered.connect(self.run_split)
+
         share = QAction(tr("Share as web map…"), self.iface.mainWindow())
         share.triggered.connect(lambda: share_as_web_map(self.iface, PLUGIN_NAME))
         about = QAction(tr("About GeoDrafter Pro Trace"), self.iface.mainWindow())
         about.triggered.connect(lambda: show_about(self.iface.mainWindow(), self.plugin_dir))
 
         add_to_toolbar(self.iface, self.trace_action)
-        for action in (self.trace_action, share, about) if PUBLISH_AVAILABLE else (self.trace_action, about):
+        add_to_toolbar(self.iface, self.split_action)
+        entries = [self.trace_action, self.split_action] + ([share] if PUBLISH_AVAILABLE else []) + [about]
+        for action in entries:
             add_to_menu(self.iface, action, MENU)
             self.actions.append(action)
 
     def run(self, checked=True):
-        canvas = self.iface.mapCanvas()
-        if self.tool is not None and canvas.mapTool() is self.tool:
-            canvas.unsetMapTool(self.tool)
-            return
         if self.tool is None:
             from .trace import TraceTool
             self.tool = TraceTool(self.iface)
             self.tool.setAction(self.trace_action)
-        canvas.setMapTool(self.tool)
+        self._toggle(self.tool)
+
+    def run_split(self, checked=True):
+        if self.split_tool is None:
+            from .trace import TraceTool
+            self.split_tool = TraceTool(self.iface, mode="split")
+            self.split_tool.setAction(self.split_action)
+        self._toggle(self.split_tool)
+
+    def _toggle(self, tool):
+        canvas = self.iface.mapCanvas()
+        if canvas.mapTool() is tool:
+            canvas.unsetMapTool(tool)
+        else:
+            canvas.setMapTool(tool)
 
     def unload(self):
-        if self.tool is not None:
-            canvas = self.iface.mapCanvas()
-            if canvas.mapTool() is self.tool:
-                canvas.unsetMapTool(self.tool)
-            self.tool.cleanup()
-            self.tool = None
+        canvas = self.iface.mapCanvas()
+        for tool in (self.tool, self.split_tool):
+            if tool is not None:
+                if canvas.mapTool() is tool:
+                    canvas.unsetMapTool(tool)
+                tool.cleanup()
+        self.tool = None
+        self.split_tool = None
         remove_actions(self.iface, self.actions, MENU)
         self.actions = []

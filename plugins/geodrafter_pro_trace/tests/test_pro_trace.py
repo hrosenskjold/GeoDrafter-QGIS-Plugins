@@ -144,10 +144,16 @@ def test_plugin_load_unload(scene):
     plugin = geodrafter_pro_trace.classFactory(iface)
     plugin.initGui()
     assert iface.menu == []                # Vector menu, not Plugins
-    assert len(iface.vector_menu) == 2  # Pro Trace + About (no Share while Publish is offline)
+    assert len(iface.vector_menu) == 3  # Pro Trace + Split + About (no Share while Publish is offline)
     assert plugin.trace_action in iface.pluginToolBar().actions()
+    assert plugin.split_action in iface.pluginToolBar().actions()
     plugin.trace_action.trigger()
     assert canvas.mapTool() is plugin.tool and plugin.trace_action.isChecked()
+    plugin.split_action.trigger()
+    assert canvas.mapTool() is plugin.split_tool and plugin.split_tool.mode == "split"
+    assert plugin.split_action.isChecked() and not plugin.trace_action.isChecked()
+    plugin.split_action.trigger()                       # second click switches it off
+    assert canvas.mapTool() is None
     plugin.unload()
     assert iface.vector_menu == [] and plugin.tool is None
     assert iface.pluginToolBar().actions() == []
@@ -181,3 +187,83 @@ def test_only_layers_switched_on_in_the_layers_panel_are_traced(scene):
     hidden.setMaximumScale(1)
     assert canvas.scale() > 10 and hidden not in tool.traceable_layers()
     tool.cleanup()
+
+
+def _square(x0, y0, x1, y1):
+    from qgis.core import QgsFeature, QgsGeometry
+    f = QgsFeature()
+    f.setGeometry(QgsGeometry.fromWkt(
+        "POLYGON((%s %s,%s %s,%s %s,%s %s,%s %s))" % (x0, y0, x1, y0, x1, y1, x0, y1, x0, y0)))
+    return f
+
+
+def _trace(tool, start, moves, finish=True):
+    tool.handle_click(tool.resolve_map_point(start))
+    for p in moves:
+        tool.handle_move(tool.resolve_map_point(p))
+    tool.handle_click(tool.resolve_map_point(moves[-1]), finish=finish)
+
+
+@needs_qgis
+def test_split_polygons_along_a_trace(scene):
+    """Split mode: the diagonal stream cuts the squares it crosses; selection limits it; one undo step."""
+    from geodrafter_pro_trace.trace import TraceTool
+    canvas, _net, _target, area = scene
+    area.dataProvider().addFeatures([_square(10, 0, 40, 30), _square(60, 50, 90, 80)])
+    iface = _fake_iface(canvas, area)
+    tool = TraceTool(iface, mode="split")
+    canvas.setMapTool(tool)
+    assert tool.layer is area and area.isEditable()
+
+    diagonal = [_pt(x, x) for x in (10, 25, 40, 55, 70, 85, 100)]
+    _trace(tool, _pt(0, 0), diagonal)
+    areas = sorted(round(f.geometry().area()) for f in area.getFeatures())
+    # y=x cuts 10..40 x 0..30 into 200 + 700 and 60..90 x 50..80 into 200 + 700
+    assert areas == [200, 200, 700, 700]
+    assert not tool.points and tool.band_locked.numberOfVertices() == 0      # sketch cleared
+    area.undoStack().undo()                                                  # one undo step
+    assert area.featureCount() == 2
+
+    # With a selection only the selected square is split
+    first = min(area.getFeatures(), key=lambda f: f.geometry().centroid().asPoint().x())
+    area.selectByIds([first.id()])
+    _trace(tool, _pt(0, 0), diagonal)
+    assert area.featureCount() == 3
+    area.removeSelection()
+    area.undoStack().undo()
+
+    # A line that does not cross anything: nothing happens, the user is told why
+    count = len(iface.bar.items())
+    _trace(tool, _pt(0, 0), [_pt(50, 0), _pt(100, 0)])                    # along the L's bottom
+    assert area.featureCount() == 2
+    assert len(iface.bar.items()) == count + 1
+    tool.cleanup()
+
+
+@needs_qgis
+def test_split_lines_and_freehand_start(scene):
+    """Split mode on a line layer, starting freehand off the network."""
+    from qgis.core import QgsFeature, QgsGeometry
+    from geodrafter_pro_trace.trace import TraceTool
+    canvas, _net, target, _area = scene
+    f = QgsFeature()
+    f.setGeometry(QgsGeometry.fromWkt("MultiLineString((50 -10, 50 60))"))
+    target.dataProvider().addFeatures([f])
+    tool = TraceTool(_fake_iface(canvas, target), mode="split")
+    canvas.setMapTool(tool)
+    tool.handle_click(tool.resolve_map_point(_pt(20, -15)))       # freehand start, off the network
+    tool.handle_move(tool.resolve_map_point(_pt(30, -15)))
+    tool.handle_click(tool.resolve_map_point(_pt(30, 0)))         # onto the bottom of the L
+    for x in (45, 60, 75):
+        tool.handle_move(tool.resolve_map_point(_pt(x, 0)))       # traced along it, across x=50
+    tool.handle_click(tool.resolve_map_point(_pt(75, 0)), finish=True)
+    lengths = sorted(round(g.geometry().length()) for g in target.getFeatures())
+    assert lengths == [10, 60]
+    tool.cleanup()
+
+
+@needs_qgis
+def test_split_mode_validation(qapp):
+    from geodrafter_pro_trace.trace import TraceTool
+    with pytest.raises(ValueError):
+        TraceTool(None, mode="cut")

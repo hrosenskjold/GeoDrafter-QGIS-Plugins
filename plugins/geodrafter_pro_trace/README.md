@@ -21,6 +21,14 @@ QGIS has built-in tracing (press T while digitizing). It works well when your sn
 3. Click on a line, move along it, click to lock. Click off the lines for a freehand vertex.
 4. **Enter** or **right click** saves · **Backspace** undoes · **Esc** cancels.
 
+### Split existing features
+
+**Pro Trace Split** (the second button, or Vector ▸ GeoDrafter ▸ Pro Trace Split) cuts features instead of drawing new ones:
+
+1. Select the line or polygon layer to split. To split only some features, select them first.
+2. Trace across the features – along a stream, a road, a parcel edge – mixing in freehand clicks where there is no line to follow. The line is red in this mode.
+3. **Enter** or **right click** splits every feature the line crosses completely (only the selected ones when there is a selection). **Ctrl+Z** undoes the whole split.
+
 The plugin collects no telemetry.
 
 ## Credits and licence
