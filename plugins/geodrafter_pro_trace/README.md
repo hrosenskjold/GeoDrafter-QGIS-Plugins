@@ -1,6 +1,6 @@
 # GeoDrafter Pro Trace
 
-**Tracing that just works.** ArcGIS Pro-style tracing for QGIS 4 (Qt6) and QGIS 3.40: click on a line, move the mouse, and the path along the visible line and polygon layers is traced and remembered as you go.
+**Tracing that just works.** ArcGIS Pro-style tracing for QGIS 4 (Qt6) and QGIS 3.34 or newer: click on a line, move the mouse, and the path along the visible line and polygon layers is traced and remembered as you go.
 
 ## Why not QGIS' built-in tracing?
 

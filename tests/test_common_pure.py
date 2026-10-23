@@ -76,6 +76,8 @@ def test_metadata_check(tmp_path):
     problems = " ".join(check_metadata(bad))
     for word in ("GeoDrafter", "qgisMaximumVersion", "supportsQt6", "homepage"):
         assert word in problems
+    assert check_metadata(dict(meta, qgisMinimumVersion="3.34")) == []      # tested there by Henrik
+    assert "qgisMinimumVersion" in " ".join(check_metadata(dict(meta, qgisMinimumVersion="3.28")))
 
 
 def test_build_zip(tmp_path):

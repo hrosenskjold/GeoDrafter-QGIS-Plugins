@@ -9,7 +9,7 @@ from qgis.PyQt.QtGui import QIcon
 
 try:  # Qt6 / QGIS 4: QAction lives in QtGui
     from qgis.PyQt.QtGui import QAction
-except ImportError:  # Qt5 / QGIS 3.40
+except ImportError:  # Qt5 / QGIS 3.34–3.44
     from qgis.PyQt.QtWidgets import QAction
 
 from .geodrafter_common import PUBLISH_AVAILABLE, share_as_web_map, show_about

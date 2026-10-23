@@ -13,6 +13,8 @@ REQUIRED_KEYS = (
 AUTHOR = "Henrik Rosenskjold (GISkon)"
 EMAIL = "contact@geodrafter.com"
 MIN_QGIS = "3.40"
+# Lowest qgisMinimumVersion a plugin may declare – only after Henrik has tested it there (CI runs QGIS 3.34)
+MIN_QGIS_ALLOWED = ("3.34", "3.40")
 MAX_QGIS = "4.99"
 
 
@@ -35,8 +37,8 @@ def check_metadata(meta):
     name = meta.get("name", "")
     if name and not name.startswith("GeoDrafter "):
         problems.append("name must start with 'GeoDrafter ': %r" % name)
-    if meta.get("qgisMinimumVersion") and meta["qgisMinimumVersion"] != MIN_QGIS:
-        problems.append("qgisMinimumVersion should be %s" % MIN_QGIS)
+    if meta.get("qgisMinimumVersion") and meta["qgisMinimumVersion"] not in MIN_QGIS_ALLOWED:
+        problems.append("qgisMinimumVersion should be one of %s" % ", ".join(MIN_QGIS_ALLOWED))
     if meta.get("qgisMaximumVersion") and meta["qgisMaximumVersion"] != MAX_QGIS:
         problems.append("qgisMaximumVersion should be %s" % MAX_QGIS)
     if meta.get("supportsQt6", "").strip().lower() not in ("true", "yes", "1"):

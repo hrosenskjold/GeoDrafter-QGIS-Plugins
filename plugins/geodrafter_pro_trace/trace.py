@@ -9,7 +9,7 @@ visible layers), not the project's snapping settings, so tracing also works
 when the project only snaps to the active layer.
 
 Ported to QGIS 4 (Qt6) from Henrik Rosenskjold's own trace tool: scoped Qt
-and QGIS enums only, so the same code runs on QGIS 3.40 and 4.x.
+and QGIS enums only, so the same code runs on QGIS 3.34 and newer, including 4.x.
 """
 
 import math
