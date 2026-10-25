@@ -1,0 +1,33 @@
+# GeoDrafter Stream Survey – English standard code table.
+#
+# Same point types as standard.yaml (Danish), with English mnemonics common in
+# survey practice. Pick this table in step 1, or copy it to make your own; only
+# the codes change, the types are fixed (see core/model.py POINT_TYPES).
+#
+# prefix_match: "TOB2" or "BED-12" also match "TOB" / "BED" (the longest code
+# wins, and the rest must not start with a letter).
+name: GeoDrafter standard (English)
+description: Short English mnemonics, one code per point type.
+case_sensitive: false
+prefix_match: true
+# Code attributes for the Emlid Flow code library (see standard.yaml).
+attributes:
+  Profile: Integer
+  Diameter_mm: Number
+  Material: List (Concrete; Plastic; Clay; Steel; Other)
+  Direction: List (Inlet; Outlet)
+profile_attribute: Profile
+codes:
+  - {code: BED,   type: bed,          description: Channel bed}
+  - {code: TOB,   type: bank_top,     description: Top of bank, aliases: [TOBL, TOBR]}
+  - {code: TOE,   type: bank_toe,     description: Toe of bank, aliases: [TOEL, TOER]}
+  - {code: WS,    type: water_level,  description: Water surface}
+  - {code: GND,   type: terrain,      description: Ground outside top of bank}
+  - {code: INV,   type: pipe_invert,  description: Pipe invert, attributes: [Diameter_mm, Material, Direction]}
+  - {code: PTOP,  type: pipe_top,     description: Pipe top (crown), attributes: [Diameter_mm, Material]}
+  - {code: BRDG,  type: bridge_deck,  description: Bridge deck / soffit}
+  - {code: WEIR,  type: weir_crest,   description: Weir or drop crest}
+  - {code: DRN,   type: drain_outlet, description: Drain outlet (invert), attributes: [Diameter_mm, Material]}
+  - {code: GAUGE, type: staff_gauge,  description: Staff gauge}
+  - {code: BRK,   type: knick,        description: Break point in the section}
+  - {code: MISC,  type: other,        description: Other}

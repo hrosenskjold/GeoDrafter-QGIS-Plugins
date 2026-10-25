@@ -1,0 +1,22 @@
+# GeoDrafter Stream Survey
+
+Stream cross-section surveys in QGIS 4 (Qt6) and QGIS 3.40.
+
+1. **Import** the field file: Emlid Flow CSV (any separator, Custom CSV, PENZD/PNEZD), Emlid shapefile (also the zip) and DXF, other CSV files or text files with columns you choose. Survey codes are translated by an editable code table (YAML; `core/codetables/standard.yaml`, also as an Emlid Flow 360 code library: `emlid_flow_codes.csv`). Survey order, solution status, RMS, antenna height and time are kept. Warns when the file is not in ETRS89 / UTM 32N with DVR90 heights.
+2. **Centre line and stationing**: by default the watercourse from INSPIRE Hydrography (Dataforsyningen, no token; the stream nearest the bed points, its segments joined and cut to the survey), or your own line layer (e.g. a regulation line, any CRS), or a line built from the lowest bed point of every section; optionally fitted through the surveyed bed points, with a warning when bed points are far from the line; oriented downstream; station 0 (or any value) bound to a chosen point.
+3. **Cross-sections**: grouped by the code attribute `Profil` (from the Emlid code library), point name (`P12-03`), description or survey order and distance; each section line is perpendicular to the centre line; every point gets station, signed offset (right positive looking downstream) and its distance from the section line.
+4. **Terrain extension**: each section is extended from the outermost bank top onto terrain (default 10 m, adjustable 5–50 m; point spacing 0.4 m by default, adjustable; thinned to break points). Without a bank top on a side it starts from the outermost measured point on the bank (bank toe, break point or terrain) and marks the side for review. Within 10 cm of the bank top the terrain model is used directly; up to 50 cm it is shifted and tapered over a 3 m transition and the section is marked for review; above that nothing is joined. Terrain model: Danmarks Højdemodel via Dataforsyningen with your own token (stored in the QGIS password manager, sent as a header – never in the project or the URL) or a local GeoTIFF/VRT. Every point keeps its source.
+5. **Structures and drains** on station with bed and water level interpolated from the sections, and the height of drains above the bed and below the water level.
+6. **Data check** with click to the place: missing bank top or water level, points far from the section line, bed above water level, distance between sections, terrain-model jump at the bank top, GNSS points without FIX or with a large elevation RMS, wrong coordinate system. The limits can be saved per municipality.
+7. **Long profile and export**: long profile (bed, water level, bank tops, terrain on both sides from the terrain model); exports as CSV (section points with source, long profile), HEC-RAS geometry (`.g01`), MIKE 11 / MIKE HYDRO River cross-section text and PDF profile sheets (one section per page with the source of every point).
+
+A **profile view** under the map shows each section (measured part, terrain-model part, transition, water level) with its point table; points can be moved, given another code, and the terrain-model part removed.
+
+Any **code list** (a municipality's appendix, a surveyor's list, an Emlid Flow code library, a spreadsheet) can be turned into a code table: point types are suggested with a confidence and a reason, you review and save.
+
+All results are written to one GeoPackage per survey (points, centre line, sections, section points, terrain extensions, structures, checks) and shown on the map.
+
+The calculations live in a pure Python core (`core/`, no QGIS import) with its own tests.
+
+© 2026 Henrik Rosenskjold (GISkon). Licence: GPL-2.0-or-later (see LICENSE).
+Plugin page: https://geodrafter.com/qgis/stream-survey/ · Source and issues: https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins

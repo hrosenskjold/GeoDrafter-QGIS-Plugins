@@ -1,0 +1,36 @@
+# GeoDrafter Stream Survey – standard code table.
+#
+# Translates survey codes (the "Code" column, or the first word of the
+# description when the code is empty) to the plugin's point types. Copy this
+# file to make a table for a municipality or a surveyor; only the codes change,
+# the types are fixed (see core/model.py POINT_TYPES).
+#
+# prefix_match: "KK2" or "B-12" also match "KK" / "B" (the longest code wins,
+# and the rest must not start with a letter).
+name: GeoDrafter standard
+description: Short Danish mnemonics, one code per point type.
+case_sensitive: false
+prefix_match: true
+# Code attributes for the Emlid Flow code library (filled in the field).
+# profile_attribute is added to every code measured in a section and is used to
+# group the sections when the Emlid export is read back.
+attributes:
+  Profil: Integer
+  Diameter_mm: Number
+  Materiale: List (Beton; Plast; Ler; Stål; Andet)
+  Retning: List (Indløb; Udløb)
+profile_attribute: Profil
+codes:
+  - {code: B,   type: bed,          description: Bund (vandløbsbund)}
+  - {code: KK,  type: bank_top,     description: Kronekant, aliases: [KKV, KKH]}
+  - {code: BK,  type: bank_toe,     description: Bundkant / brinkfod, aliases: [BKV, BKH]}
+  - {code: VS,  type: water_level,  description: Vandspejl}
+  - {code: T,   type: terrain,      description: Terræn uden for kronekant}
+  - {code: RB,  type: pipe_invert,  description: Rørbund, attributes: [Diameter_mm, Materiale, Retning]}
+  - {code: RT,  type: pipe_top,     description: Rørtop, attributes: [Diameter_mm, Materiale]}
+  - {code: BRO, type: bridge_deck,  description: Brodæk / bro underkant}
+  - {code: STY, type: weir_crest,   description: Styrt / overløbskant}
+  - {code: DR,  type: drain_outlet, description: Drænudløb (drænbund), attributes: [Diameter_mm, Materiale]}
+  - {code: SP,  type: staff_gauge,  description: Skalapæl}
+  - {code: K,   type: knick,        description: Knækpunkt i profilet}
+  - {code: X,   type: other,        description: Andet}

@@ -1,0 +1,22 @@
+[general]
+name=GeoDrafter Stream Survey
+qgisMinimumVersion=3.40
+qgisMaximumVersion=4.99
+supportsQt6=True
+description=Stream cross-section surveys: read the field file (Emlid Flow and others), build stationing and cross-sections, and extend each section onto terrain with a terrain model.
+about=For regulation and maintenance surveys of streams. Reads the surveyor's field file – Emlid Flow CSV, shapefile and DXF, other CSV or text files – and translates the survey codes with an editable code table. Builds the stream centre line (or uses an existing one), stationing downstream from a fixed point and cross-sections perpendicular to the centre line, with station, offset and side for every point. Each section is extended from the outermost bank top onto terrain with Danmarks Højdemodel (your own Dataforsyningen token, kept in the QGIS password manager) or a local terrain model; every point keeps its source (measured, terrain model or transition) and differences at the bank top are flagged. Everything is stored in one GeoPackage per survey. User interface in English and Danish. Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+version=0.1.0
+author=Henrik Rosenskjold (GISkon)
+email=contact@geodrafter.com
+changelog=0.1.0 (2026-10-24): First test version – reading (Emlid Flow and others), code tables and code list translator, centre line (INSPIRE, own line or points), cross-sections, terrain extension, structures and drains, data check, profile view, GeoPackage and map layers.
+tags=stream,river,watercourse,cross-section,profile,survey,gnss,emlid,dem,terrain,dhm,denmark,vandløb,opmåling,qgis4,qt6
+homepage=https://geodrafter.com/qgis/stream-survey/
+repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues
+category=Vector
+icon=icon.svg
+experimental=True
+deprecated=False
+license=GPL-2.0-or-later
+hasProcessingProvider=no
+server=False

@@ -5,6 +5,7 @@ Geodesic distance, area and radius measurement for QGIS 4 (Qt6) and QGIS 3.40 �
 - **Distance** – click points; total and segment lengths.
 - **Area** – click a polygon; area and perimeter.
 - **Radius** – click the centre and drag, or type a radius ("5 km", "3 mi", "2 NM") and place the circle with one click. The circle is a true geodesic circle.
+- **Feature** – click a line or polygon in any visible layer: its length, or its area and perimeter. Shift+click adds more features to a total; clicking a picked feature again with Shift removes it; right click clears.
 - Right click, double click or Enter finishes · Backspace removes the last point · Esc clears.
 - Always measured on the ellipsoid (the project's, or WGS84), whatever the map projection.
 - Metric/imperial auto units or a fixed unit; **Copy** puts the result on the clipboard.

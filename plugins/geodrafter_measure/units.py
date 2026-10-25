@@ -21,6 +21,7 @@ TOOL_URLS = {
     "distance": "https://geodrafter.com/distance-calculator/",
     "area": "https://geodrafter.com/area-calculator/",
     "radius": "https://geodrafter.com/radius-map/",
+    "feature": "https://geodrafter.com/area-calculator/",
 }
 
 

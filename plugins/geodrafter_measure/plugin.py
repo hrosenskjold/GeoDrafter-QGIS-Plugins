@@ -61,7 +61,8 @@ class GeoDrafterMeasurePlugin:
         self.action.setObjectName("GeoDrafterMeasureAction")
         self.action.setToolTip(tr(
             "GeoDrafter Measure – geodesic distance, area and radius.\n"
-            "Click to add points; right click, double click or Enter finishes; Esc clears."))
+            "Click to add points; right click, double click or Enter finishes; Esc clears.\n"
+            "Feature mode: click a line or polygon to get its length or area."))
         self.action.triggered.connect(self.run)
         share = QAction(tr("Share as web map…"), self.iface.mainWindow())
         share.triggered.connect(self.share)
@@ -110,6 +111,18 @@ class GeoDrafterMeasurePlugin:
 
     def update_result(self):
         if self.tool is None or self.dock is None:
+            return
+        from .measure import FEATURE, describe
+        if self.tool.mode == FEATURE:
+            lu, au, imperial = self.dock.units_choice()
+            if self.tool.picked:
+                lines = describe(FEATURE, self.tool.picked_summary(), lu, au, imperial)
+            else:
+                lines = [tr("Click a line or polygon to measure it."),
+                         tr("Shift+click adds more features to a total.")]
+            self.dock.show_lines(lines)
+            self.dock.ellipsoid_label.setText(
+                tr("Geodesic, on ellipsoid {}").format(self.tool.engine.ellipsoid))
             return
         m = self.tool.preview()
         if m.points:

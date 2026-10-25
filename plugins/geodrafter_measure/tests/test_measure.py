@@ -142,6 +142,10 @@ def test_plugin_and_export(qapp, tmp_path):
     assert plugin.tool.mode == "radius" and plugin.tool.fixed_radius_m == 1000
     plugin.tool.add_point(_to("EPSG:25832", *CPH))
     assert "Radius: 1.000 km" in plugin.dock.result.toPlainText()
+    plugin.dock.mode_buttons["feature"].setChecked(True)
+    assert plugin.tool.mode == "feature" and not plugin.dock.radius_edit.isEnabled()
+    assert "Click a line or polygon" in plugin.dock.result.toPlainText()
+    plugin.dock.mode_buttons["radius"].setChecked(True)
     layers = plugin._measurement_layers()
     assert [lyr.name() for lyr in layers] == ["GeoDrafter areas"]
     assert layers[0].featureCount() == 1
@@ -153,3 +157,88 @@ def test_plugin_and_export(qapp, tmp_path):
     plugin.unload()
     assert iface.menu == [] and plugin.dock is None
     project.clear()
+
+
+def _memory_layer(kind, name, crs, wkts):
+    from qgis.core import QgsFeature, QgsGeometry, QgsVectorLayer
+    layer = QgsVectorLayer("%s?crs=%s" % (kind, crs), name, "memory")
+    feats = []
+    for wkt in wkts:
+        f = QgsFeature()
+        f.setGeometry(QgsGeometry.fromWkt(wkt))
+        feats.append(f)
+    layer.dataProvider().addFeatures(feats)
+    layer.updateExtents()
+    return layer
+
+
+@needs_qgis
+def test_feature_mode_pick_polygon_and_line(qapp):
+    """Feature mode: a click on a polygon gives its area, on a line its length; Shift+click sums."""
+    from qgis.core import QgsPointXY, QgsProject
+    from qgis.gui import QgsMapCanvas
+    from geodrafter_measure.measure import FEATURE, MeasureTool, describe, pick_feature
+
+    project = QgsProject.instance()
+    project.clear()
+    project.setEllipsoid("EPSG:7019")   # GRS80, as ETRS89
+    # a 100 x 50 m field with a 20 x 10 m building inside it, and a 300 m ditch (UTM 32N, Denmark)
+    fields = _memory_layer("Polygon", "fields", "EPSG:25832", [
+        "POLYGON((500000 6200000, 500100 6200000, 500100 6200050, 500000 6200050, 500000 6200000))",
+        "POLYGON((500040 6200020, 500060 6200020, 500060 6200030, 500040 6200030, 500040 6200020))"])
+    ditches = _memory_layer("LineString", "ditches", "EPSG:25832", [
+        "LINESTRING(500000 6200100, 500300 6200100)"])
+    # the map shows Web Mercator: picking and measuring must not care
+    canvas = QgsMapCanvas()
+    canvas.setDestinationCrs(_crs("EPSG:3857"))
+    canvas.setLayers([ditches, fields])
+    canvas.resize(800, 600)
+    canvas.setExtent(_rect_3857(499950, 6199950, 500350, 6200150))
+    tool = MeasureTool(canvas)
+    tool.set_mode(FEATURE)
+    to_map = _transform("EPSG:25832", "EPSG:3857")
+
+    def at(x, y):
+        return QgsPointXY(to_map.transform(QgsPointXY(x, y)))
+
+    hit = tool.pick(at(500010, 6200010))                 # in the field, outside the building
+    assert hit.layer_name == "fields" and hit.kind == "polygon"
+    vals = tool.picked_summary()
+    # UTM grid scale near the central meridian is 0.9996 → ground area ≈ 5000 / 0.9996²
+    assert vals["area_m2"] == pytest.approx(5000 / 0.9996 ** 2, rel=2e-4)
+    assert vals["perimeter_m"] == pytest.approx(300 / 0.9996, rel=2e-4)
+    lines = describe(FEATURE, vals, None, "m2")
+    assert lines[0].startswith("fields · feature") and lines[1].replace("\u202f", " ") == "Area: 5 004.0 m²"
+
+    assert tool.pick(at(500050, 6200025)).fid != hit.fid   # the smaller building wins inside it
+    assert tool.picked_summary()["area_m2"] == pytest.approx(200 / 0.9996 ** 2, rel=2e-4)
+
+    tool.pick(at(500150, 6200100.3))                      # on the ditch (within the pick radius)
+    vals = tool.picked_summary()
+    assert vals["lines"] == 1 and vals["polygons"] == 0
+    assert vals["length_m"] == pytest.approx(300 / 0.9996, rel=2e-4)
+    assert describe(FEATURE, vals)[1].startswith("Length: 300.")
+
+    tool.pick(at(500010, 6200010), add=True)              # Shift+click: field + ditch
+    vals = tool.picked_summary()
+    assert (vals["lines"], vals["polygons"]) == (1, 1)
+    assert describe(FEATURE, vals)[0].startswith("2 features")
+    tool.pick(at(500010, 6200010), add=True)              # Shift+click again removes it
+    assert len(tool.picked) == 1
+
+    assert tool.pick(at(500200, 6199980)) is None and tool.picked == []   # empty spot clears
+    assert pick_feature([fields], QgsPointXY(500010, 6200010), 1.0, _crs("EPSG:25832")).fid == hit.fid
+    tool.cleanup()
+    project.clear()
+
+
+def _rect_3857(x0, y0, x1, y1):
+    from qgis.core import QgsPointXY, QgsRectangle
+    t = _transform("EPSG:25832", "EPSG:3857")
+    a, b = t.transform(QgsPointXY(x0, y0)), t.transform(QgsPointXY(x1, y1))
+    return QgsRectangle(a, b)
+
+
+def _transform(src, dst):
+    from qgis.core import QgsCoordinateTransform, QgsProject
+    return QgsCoordinateTransform(_crs(src), _crs(dst), QgsProject.instance())

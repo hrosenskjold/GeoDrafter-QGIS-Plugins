@@ -1,0 +1,18 @@
+Code,Description,Type,Color,Attribute_1,Attribute_Type_1,Attribute_2,Attribute_Type_2,Attribute_3,Attribute_Type_3
+B,Bund (vandløbsbund),Point,#1F4E9E,Profil,Integer,,,,
+KK,Kronekant,Point,#2E8B3E,Profil,Integer,,,,
+KKV,Kronekant,Point,#2E8B3E,Profil,Integer,,,,
+KKH,Kronekant,Point,#2E8B3E,Profil,Integer,,,,
+BK,Bundkant / brinkfod,Point,#7FB04F,Profil,Integer,,,,
+BKV,Bundkant / brinkfod,Point,#7FB04F,Profil,Integer,,,,
+BKH,Bundkant / brinkfod,Point,#7FB04F,Profil,Integer,,,,
+VS,Vandspejl,Point,#2FA4E7,Profil,Integer,,,,
+T,Terræn uden for kronekant,Point,#8C6D3F,Profil,Integer,,,,
+RB,Rørbund,Point,#C0392B,Diameter_mm,Number,Materiale,List (Beton; Plast; Ler; Stål; Andet),Retning,List (Indløb; Udløb)
+RT,Rørtop,Point,#E67E22,Diameter_mm,Number,Materiale,List (Beton; Plast; Ler; Stål; Andet),,
+BRO,Brodæk / bro underkant,Point,#7F8C8D,,,,,,
+STY,Styrt / overløbskant,Point,#8E44AD,,,,,,
+DR,Drænudløb (drænbund),Point,#D35400,Diameter_mm,Number,Materiale,List (Beton; Plast; Ler; Stål; Andet),,
+SP,Skalapæl,Point,#F1C40F,,,,,,
+K,Knækpunkt i profilet,Point,#34495E,Profil,Integer,,,,
+X,Andet,Point,#95A5A6,,,,,,

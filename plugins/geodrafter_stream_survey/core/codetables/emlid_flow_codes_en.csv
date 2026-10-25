@@ -1,0 +1,18 @@
+Code,Description,Type,Color,Attribute_1,Attribute_Type_1,Attribute_2,Attribute_Type_2,Attribute_3,Attribute_Type_3
+BED,Channel bed,Point,#1F4E9E,Profile,Integer,,,,
+TOB,Top of bank,Point,#2E8B3E,Profile,Integer,,,,
+TOBL,Top of bank,Point,#2E8B3E,Profile,Integer,,,,
+TOBR,Top of bank,Point,#2E8B3E,Profile,Integer,,,,
+TOE,Toe of bank,Point,#7FB04F,Profile,Integer,,,,
+TOEL,Toe of bank,Point,#7FB04F,Profile,Integer,,,,
+TOER,Toe of bank,Point,#7FB04F,Profile,Integer,,,,
+WS,Water surface,Point,#2FA4E7,Profile,Integer,,,,
+GND,Ground outside top of bank,Point,#8C6D3F,Profile,Integer,,,,
+INV,Pipe invert,Point,#C0392B,Diameter_mm,Number,Material,List (Concrete; Plastic; Clay; Steel; Other),Direction,List (Inlet; Outlet)
+PTOP,Pipe top (crown),Point,#E67E22,Diameter_mm,Number,Material,List (Concrete; Plastic; Clay; Steel; Other),,
+BRDG,Bridge deck / soffit,Point,#7F8C8D,,,,,,
+WEIR,Weir or drop crest,Point,#8E44AD,,,,,,
+DRN,Drain outlet (invert),Point,#D35400,Diameter_mm,Number,Material,List (Concrete; Plastic; Clay; Steel; Other),,
+GAUGE,Staff gauge,Point,#F1C40F,,,,,,
+BRK,Break point in the section,Point,#34495E,Profile,Integer,,,,
+MISC,Other,Point,#95A5A6,,,,,,

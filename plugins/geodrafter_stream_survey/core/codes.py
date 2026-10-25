@@ -1,0 +1,221 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 Henrik Rosenskjold (GISkon)
+"""Code tables: survey code of a municipality or surveyor → plugin point type.
+
+Tables are YAML files (one per municipality or surveyor), see
+``codetables/standard.yaml``. ``emlid_library_csv`` writes a table as a code
+library CSV that can be imported into Emlid Flow 360 (columns Code,
+Description, Type, Color – the documented Emlid code library import format).
+"""
+
+import csv
+import io
+import os
+import re
+from dataclasses import dataclass, field
+from typing import Dict, List
+
+from .model import POINT_TYPES
+
+TABLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codetables")
+STANDARD_TABLE = os.path.join(TABLE_DIR, "standard.yaml")
+EMLID_LIBRARY = os.path.join(TABLE_DIR, "emlid_flow_codes.csv")
+STANDARD_TABLE_EN = os.path.join(TABLE_DIR, "standard_en.yaml")
+EMLID_LIBRARY_EN = os.path.join(TABLE_DIR, "emlid_flow_codes_en.csv")
+
+# Colours for the Emlid code library (and later the map style), one per type
+TYPE_COLORS = {
+    "bed": "#1F4E9E", "bank_top": "#2E8B3E", "bank_toe": "#7FB04F", "water_level": "#2FA4E7",
+    "terrain": "#8C6D3F", "pipe_invert": "#C0392B", "pipe_top": "#E67E22", "bridge_deck": "#7F8C8D",
+    "weir_crest": "#8E44AD", "drain_outlet": "#D35400", "staff_gauge": "#F1C40F", "knick": "#34495E",
+    "other": "#95A5A6",
+}
+
+_REST_OK = re.compile(r"^[^A-Za-zÆØÅæøå]")
+
+# Point types measured in a cross-section: their codes get the table's profile
+# attribute (e.g. "Profil") in the Emlid code library, so sections group safely.
+SECTION_TYPES = ("bed", "bank_top", "bank_toe", "water_level", "terrain", "knick")
+# Emlid Flow code attribute types (docs.emlid.com, "Code libraries management")
+_ATTR_TYPE = re.compile(r"^(Number|Integer|Text|List \(.+\))$")
+
+
+class CodeTableError(ValueError):
+    pass
+
+
+@dataclass
+class CodeEntry:
+    code: str
+    point_type: str
+    description: str = ""
+    aliases: List[str] = field(default_factory=list)
+    attributes: List[str] = field(default_factory=list)   # names from CodeTable.attribute_defs
+
+
+@dataclass
+class CodeTable:
+    name: str
+    entries: List[CodeEntry]
+    description: str = ""
+    case_sensitive: bool = False
+    prefix_match: bool = True
+    attribute_defs: Dict[str, str] = field(default_factory=dict)   # name -> Emlid attribute type
+    profile_attribute: str = ""
+    _index: Dict[str, CodeEntry] = field(default_factory=dict, repr=False)
+
+    def __post_init__(self):
+        self._index = {}
+        for name, typ in self.attribute_defs.items():
+            if not _ATTR_TYPE.match(str(typ)):
+                raise CodeTableError("Attribute '%s' has type '%s' (allowed: Number, Integer, Text, "
+                                     "List (A; B; …))" % (name, typ))
+        if self.profile_attribute and self.profile_attribute not in self.attribute_defs:
+            raise CodeTableError("profile_attribute '%s' is not defined under attributes"
+                                 % self.profile_attribute)
+        for e in self.entries:
+            if e.point_type not in POINT_TYPES:
+                raise CodeTableError("Unknown point type '%s' for code '%s' (allowed: %s)"
+                                     % (e.point_type, e.code, ", ".join(POINT_TYPES)))
+            for a in e.attributes:
+                if a not in self.attribute_defs:
+                    raise CodeTableError("Code '%s' uses undefined attribute '%s'" % (e.code, a))
+            for c in [e.code] + list(e.aliases):
+                key = self._key(c)
+                if not key:
+                    raise CodeTableError("Empty code in table '%s'" % self.name)
+                if key in self._index:
+                    raise CodeTableError("Code '%s' appears twice in table '%s'" % (c, self.name))
+                self._index[key] = e
+
+    def _key(self, code):
+        code = (code or "").strip()
+        return code if self.case_sensitive else code.upper()
+
+    def lookup(self, code):
+        """The CodeEntry for a code, or None."""
+        key = self._key(code)
+        if not key:
+            return None
+        if key in self._index:
+            return self._index[key]
+        if self.prefix_match:
+            best = None
+            for k, e in self._index.items():
+                if key.startswith(k) and _REST_OK.match(key[len(k):]):
+                    if best is None or len(k) > len(best[0]):
+                        best = (k, e)
+            if best:
+                return best[1]
+        return None
+
+    def classify(self, code, description=""):
+        """(point_type, known) for a point; falls back to the first word of the description."""
+        e = self.lookup(code)
+        if e is None and not (code or "").strip() and description:
+            e = self.lookup(description.split()[0])
+        return (e.point_type, True) if e else ("other", False)
+
+    def entry_attributes(self, entry):
+        """[(name, Emlid type)] for a code: the profile attribute for section types, then its own."""
+        names = []
+        if self.profile_attribute and entry.point_type in SECTION_TYPES:
+            names.append(self.profile_attribute)
+        names += [a for a in entry.attributes if a not in names]
+        return [(a, self.attribute_defs[a]) for a in names]
+
+    def to_dict(self):
+        d = {"name": self.name, "description": self.description,
+             "case_sensitive": self.case_sensitive, "prefix_match": self.prefix_match}
+        if self.attribute_defs:
+            d["attributes"] = dict(self.attribute_defs)
+        if self.profile_attribute:
+            d["profile_attribute"] = self.profile_attribute
+        rows = []
+        for e in self.entries:
+            r = {"code": e.code, "type": e.point_type, "description": e.description}
+            if e.aliases:
+                r["aliases"] = list(e.aliases)
+            if e.attributes:
+                r["attributes"] = list(e.attributes)
+            rows.append(r)
+        d["codes"] = rows
+        return d
+
+
+def table_from_dict(d, default_name="code table"):
+    if not isinstance(d, dict) or not isinstance(d.get("codes"), list):
+        raise CodeTableError("A code table needs a 'codes' list")
+    entries = []
+    for i, row in enumerate(d["codes"]):
+        if not isinstance(row, dict) or "code" not in row or "type" not in row:
+            raise CodeTableError("Entry %d needs 'code' and 'type'" % (i + 1))
+        aliases = row.get("aliases") or []
+        if isinstance(aliases, str):
+            aliases = [a.strip() for a in aliases.split(",") if a.strip()]
+        attrs = row.get("attributes") or []
+        if isinstance(attrs, str):
+            attrs = [a.strip() for a in attrs.split(",") if a.strip()]
+        entries.append(CodeEntry(str(row["code"]).strip(), str(row["type"]).strip(),
+                                 str(row.get("description") or ""), [str(a) for a in aliases],
+                                 [str(a) for a in attrs]))
+    defs = d.get("attributes") or {}
+    if not isinstance(defs, dict):
+        raise CodeTableError("'attributes' must map attribute names to Emlid types")
+    return CodeTable(str(d.get("name") or default_name), entries,
+                     description=str(d.get("description") or ""),
+                     case_sensitive=bool(d.get("case_sensitive", False)),
+                     prefix_match=bool(d.get("prefix_match", True)),
+                     attribute_defs={str(k): str(v) for k, v in defs.items()},
+                     profile_attribute=str(d.get("profile_attribute") or ""))
+
+
+def load_table(path=STANDARD_TABLE):
+    import yaml  # PyYAML ships with QGIS (Processing uses it)
+    with open(path, encoding="utf-8") as f:
+        d = yaml.safe_load(f)
+    return table_from_dict(d, os.path.splitext(os.path.basename(path))[0])
+
+
+def save_table(table, path):
+    import yaml
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(table.to_dict(), f, allow_unicode=True, sort_keys=False)
+
+
+def standard_table():
+    return load_table(STANDARD_TABLE)
+
+
+def standard_table_en():
+    """The English standard table (same point types, English codes)."""
+    return load_table(STANDARD_TABLE_EN)
+
+
+def emlid_library_csv(table):
+    """The table as an Emlid Flow 360 code library CSV.
+
+    Columns ``Code, Description, Type, Color`` and, when the table defines
+    attributes, the pairs ``Attribute_<n>, Attribute_Type_<n>`` (Emlid's
+    documented import format; types Number, Integer, Text, List (A; B; C)).
+    Every code and alias becomes a point code.
+    """
+    rows = []
+    for e in table.entries:
+        attrs = table.entry_attributes(e)
+        for c in [e.code] + list(e.aliases):
+            rows.append(([c, e.description, "Point", TYPE_COLORS.get(e.point_type, "#95A5A6")], attrs))
+    n = max((len(a) for _r, a in rows), default=0)
+    header = ["Code", "Description", "Type", "Color"]
+    for i in range(1, n + 1):
+        header += ["Attribute_%d" % i, "Attribute_Type_%d" % i]
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(header)
+    for base, attrs in rows:
+        cells = list(base)
+        for name, typ in attrs:
+            cells += [name, typ]
+        cells += [""] * (len(header) - len(cells))
+        w.writerow(cells)
+    return buf.getvalue()

@@ -2,6 +2,9 @@
 # Copyright (C) 2026 Henrik Rosenskjold (GISkon)
 """Geodesic distance, area and radius measurement on the ellipsoid.
 
+Feature mode: click a line or polygon in any visible vector layer to get its
+length, or its area and perimeter; Shift+click adds more features to a total.
+
 Lengths and areas are always computed on the ellipsoid (the project's, or
 WGS84 when the project has none), never in the planar map units, so results
 match geodrafter.com's web tools whatever the map projection.
@@ -17,8 +20,8 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.core import (
     Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsDistanceArea,
-    QgsFeature, QgsField, QgsFields, QgsGeometry, QgsMemoryProviderUtils,
-    QgsPointXY, QgsProject,
+    QgsFeature, QgsFeatureRequest, QgsField, QgsFields, QgsGeometry,
+    QgsMemoryProviderUtils, QgsPointXY, QgsProject, QgsRectangle, QgsVectorLayer,
 )
 from qgis.gui import QgsMapTool, QgsRubberBand
 
@@ -35,7 +38,8 @@ def _field(name, kind):
         return QgsField(name, QVariant.Double if kind == "double" else QVariant.String)
 
 
-DISTANCE, AREA, RADIUS = "distance", "area", "radius"
+DISTANCE, AREA, RADIUS, FEATURE = "distance", "area", "radius", "feature"
+PICK_PIXELS = 6   # search radius around the click, in screen pixels
 CIRCLE_SEGMENTS = 120
 WGS84 = "EPSG:4326"
 LINE_LAYER_NAME = "GeoDrafter distances"
@@ -103,6 +107,96 @@ class MeasureEngine:
     def radius_between(self, centre, edge):
         return self._metres(self.da.measureLine(centre, edge))
 
+    def geometry_values(self, geom):
+        """Geodesic size of a geometry in ``crs``: polygons → area_m2 + perimeter_m, lines → length_m."""
+        kind = geom.type()
+        if kind == Qgis.GeometryType.Polygon:
+            return {"area_m2": self._square_metres(self.da.measureArea(geom)),
+                    "perimeter_m": self._metres(self.da.measurePerimeter(geom))}
+        if kind == Qgis.GeometryType.Line:
+            return {"length_m": self._metres(self.da.measureLength(geom))}
+        return {}
+
+
+class PickedFeature:
+    """A feature clicked in feature mode; ``geometry`` is transformed to the measuring CRS."""
+
+    def __init__(self, layer_name, fid, geometry):
+        self.layer_name = layer_name
+        self.fid = fid
+        self.geometry = geometry
+
+    @property
+    def kind(self):
+        return "polygon" if self.geometry.type() == Qgis.GeometryType.Polygon else "line"
+
+
+def pick_feature(layers, point, tolerance, crs, project=None):
+    """The line or polygon under ``point`` (in ``crs``) in the first layer that has one.
+
+    ``layers`` are tried in order (the canvas lists the top layer first). Within
+    a layer a polygon containing the point wins over a nearby edge, the smallest
+    containing polygon wins (a field inside a parcel), and among lines the
+    nearest within ``tolerance`` (map units of ``crs``). Returns a PickedFeature
+    or None.
+    """
+    project = project or QgsProject.instance()
+    here = QgsGeometry.fromPointXY(point)
+    rect = QgsRectangle(point.x() - tolerance, point.y() - tolerance,
+                        point.x() + tolerance, point.y() + tolerance)
+    for layer in layers:
+        if not isinstance(layer, QgsVectorLayer):
+            continue
+        gtype = layer.geometryType()
+        if gtype not in (Qgis.GeometryType.Line, Qgis.GeometryType.Polygon):
+            continue
+        to_layer = QgsCoordinateTransform(crs, layer.crs(), project)
+        to_map = QgsCoordinateTransform(layer.crs(), crs, project)
+        try:
+            search = to_layer.transformBoundingBox(rect)
+        except Exception:   # noqa: BLE001 – point outside the layer CRS's valid area
+            continue
+        request = QgsFeatureRequest().setFilterRect(search)
+        try:
+            request.setNoAttributes()
+        except AttributeError:   # pragma: no cover
+            pass
+        best = None   # (rank, size, fid, geometry in crs)
+        for f in layer.getFeatures(request):
+            g = f.geometry()
+            if g is None or g.isEmpty():
+                continue
+            g = QgsGeometry(g)
+            if layer.crs() != crs:
+                g.transform(to_map)
+            if gtype == Qgis.GeometryType.Polygon and g.contains(here):
+                rank, size = 0, g.area()
+            else:
+                d = g.distance(here)
+                if d > tolerance:
+                    continue
+                rank, size = 1, d
+            if best is None or (rank, size) < best[:2]:
+                best = (rank, size, f.id(), g)
+        if best is not None:
+            return PickedFeature(layer.name(), best[2], best[3])
+    return None
+
+
+def picked_values(engine, picked):
+    """Totals for the picked features (dict like Measurement.values, plus counts)."""
+    out = {"polygons": 0, "lines": 0, "area_m2": 0.0, "perimeter_m": 0.0, "length_m": 0.0}
+    for p in picked:
+        v = engine.geometry_values(p.geometry)
+        if p.kind == "polygon":
+            out["polygons"] += 1
+            out["area_m2"] += v.get("area_m2", 0.0)
+            out["perimeter_m"] += v.get("perimeter_m", 0.0)
+        else:
+            out["lines"] += 1
+            out["length_m"] += v.get("length_m", 0.0)
+    return out
+
 
 class Measurement:
     """One finished or in-progress measurement."""
@@ -145,6 +239,23 @@ def describe(mode, values, length_unit=None, area_unit=None, imperial=False):
     lu = length_unit
     au = area_unit
     lines = []
+    if mode == FEATURE:
+        n_poly, n_line = values.get("polygons", 0), values.get("lines", 0)
+        if n_poly + n_line > 1:
+            lines.append("%d features (Shift+click adds, click starts again)" % (n_poly + n_line))
+        elif values.get("name"):
+            lines.append(values["name"])
+        if n_poly:
+            a, p = values.get("area_m2", 0.0), values.get("perimeter_m", 0.0)
+            prefix = "Total area" if n_poly > 1 else "Area"
+            lines.append(prefix + ": " + units.fmt_area(a, au or units.auto_area_unit(a, imperial)))
+            lines.append(("Total perimeter" if n_poly > 1 else "Perimeter") + ": "
+                         + units.fmt_length(p, lu or units.auto_length_unit(p, imperial)))
+        if n_line:
+            total = values.get("length_m", 0.0)
+            lines.append(("Total length" if n_line > 1 else "Length") + ": "
+                         + units.fmt_length(total, lu or units.auto_length_unit(total, imperial)))
+        return lines
     if mode == DISTANCE:
         total = values.get("length_m", 0.0)
         lines.append("Distance: " + units.fmt_length(total, lu or units.auto_length_unit(total, imperial)))
@@ -225,6 +336,7 @@ class MeasureTool(QgsMapTool):
         self.fixed_radius_m = None
         self.current = Measurement(self.mode)
         self.hover = None
+        self.picked = []          # PickedFeature list in feature mode
         self.band = QgsRubberBand(canvas, Qgis.GeometryType.Polygon)
         self.band.setStrokeColor(QColor(255, 106, 0, 230))
         self.band.setFillColor(QColor(255, 106, 0, 50))
@@ -243,8 +355,48 @@ class MeasureTool(QgsMapTool):
     def clear(self):
         self.current = Measurement(self.mode)
         self.hover = None
+        self.picked = []
         self.band.reset(Qgis.GeometryType.Polygon)
         self.changed.emit()
+
+    # -- feature mode --
+
+    def pick(self, point, add=False):
+        """Measure the line/polygon under ``point``; ``add`` keeps earlier picks (Shift+click).
+
+        Clicking a feature that is already picked removes it from the total.
+        Returns the PickedFeature or None.
+        """
+        tol = self.canvas().mapUnitsPerPixel() * PICK_PIXELS
+        hit = pick_feature(self.canvas().layers(), point, tol, self.engine.crs, self.engine.project)
+        if hit is None:
+            if not add:
+                self.picked = []
+        else:
+            same = [p for p in self.picked if p.layer_name == hit.layer_name and p.fid == hit.fid]
+            if add and same:
+                self.picked = [p for p in self.picked if p not in same]
+            elif add:
+                self.picked.append(hit)
+            else:
+                self.picked = [hit]
+        self._draw_picked()
+        self.changed.emit()
+        return hit
+
+    def picked_summary(self):
+        vals = picked_values(self.engine, self.picked)
+        if len(self.picked) == 1:
+            vals["name"] = "%s · feature %s" % (self.picked[0].layer_name, self.picked[0].fid)
+        return vals
+
+    def _draw_picked(self):
+        self.band.reset(Qgis.GeometryType.Polygon)
+        for p in self.picked:
+            g = p.geometry
+            if p.kind == "line":   # a line as a thin polygon outline keeps one band for both kinds
+                g = g.buffer(self.canvas().mapUnitsPerPixel() * 1.5, 4)
+            self.band.addGeometry(g, None)
 
     def preview(self):
         """The measurement including the point under the cursor."""
@@ -283,13 +435,20 @@ class MeasureTool(QgsMapTool):
 
     def canvasReleaseEvent(self, e):  # noqa: N802
         point = QgsPointXY(self.toMapCoordinates(e.pos()))
+        if self.mode == FEATURE:
+            if e.button() == Qt.MouseButton.LeftButton:
+                self.pick(point, add=bool(e.modifiers() & Qt.KeyboardModifier.ShiftModifier))
+            elif e.button() == Qt.MouseButton.RightButton:
+                self.clear()
+            return
         if e.button() == Qt.MouseButton.LeftButton:
             self.add_point(point)
         elif e.button() == Qt.MouseButton.RightButton:
             self.finish()
 
     def canvasDoubleClickEvent(self, e):  # noqa: N802
-        self.finish()
+        if self.mode != FEATURE:
+            self.finish()
 
     def keyPressEvent(self, e):  # noqa: N802
         if e.key() == Qt.Key.Key_Escape:
@@ -305,6 +464,8 @@ class MeasureTool(QgsMapTool):
             e.ignore()
 
     def move(self, point):
+        if self.mode == FEATURE:
+            return
         self.hover = point
         self._redraw()
 
@@ -361,12 +522,15 @@ class MeasureDock(QDockWidget):
         modes = QHBoxLayout()
         self.mode_group = QButtonGroup(self)
         self.mode_buttons = {}
-        for mode, text in ((DISTANCE, "Distance"), (AREA, "Area"), (RADIUS, "Radius")):
+        for mode, text in ((DISTANCE, "Distance"), (AREA, "Area"), (RADIUS, "Radius"), (FEATURE, "Feature")):
             b = QRadioButton(self.tr(text), body)
             self.mode_group.addButton(b)
             self.mode_buttons[mode] = b
             modes.addWidget(b)
         self.mode_buttons[DISTANCE].setChecked(True)
+        self.mode_buttons[FEATURE].setToolTip(self.tr(
+            "Click a line or polygon in any visible layer to get its length or area. "
+            "Shift+click adds features to a total; right click clears."))
         grid.addLayout(modes, 0, 0, 1, 2)
 
         grid.addWidget(QLabel(self.tr("Fixed radius"), body), 1, 0)
