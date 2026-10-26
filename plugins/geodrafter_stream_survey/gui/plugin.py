@@ -8,8 +8,8 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QFileDialog
 from qgis.core import (
-    Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsProject,
-    QgsRectangle)
+    Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsGeometry, QgsMessageLog, QgsPointXY,
+    QgsProject, QgsRectangle)
 
 try:  # Qt6 / QGIS 4
     from qgis.PyQt.QtGui import QAction
@@ -260,8 +260,9 @@ class GeoDrafterStreamSurveyPlugin:
                 try:
                     s = load_settings(os.path.join(d, fn))
                     choices.append((s.name, s))
-                except Exception:
-                    continue
+                except Exception as err:  # noqa: BLE001 – a broken user file must not hide the others
+                    QgsMessageLog.logMessage("Check settings %s skipped: %s" % (fn, err),
+                                             "GeoDrafter Stream Survey", Qgis.MessageLevel.Warning)
         self.dock.set_check_choices(choices, select)
 
     def save_check_settings(self, name):

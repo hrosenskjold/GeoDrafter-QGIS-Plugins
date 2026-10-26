@@ -10,6 +10,8 @@ from qgis.PyQt.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout)
 
+from qgis.core import Qgis, QgsMessageLog
+
 from ..core import codemap, codes
 from ..core.model import POINT_TYPES
 from .i18n import tr
@@ -44,8 +46,9 @@ def saved_tables():
             path = os.path.join(d, fn)
             try:
                 out.append((codes.load_table(path).name, path))
-            except Exception:
-                continue
+            except Exception as err:  # noqa: BLE001 – a broken user file must not hide the others
+                QgsMessageLog.logMessage("Code table %s skipped: %s" % (fn, err), "GeoDrafter Stream Survey",
+                                         Qgis.MessageLevel.Warning)
     return out
 
 

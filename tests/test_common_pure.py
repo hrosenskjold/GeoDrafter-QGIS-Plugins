@@ -77,6 +77,8 @@ def test_metadata_check(tmp_path):
     for word in ("GeoDrafter", "qgisMaximumVersion", "supportsQt6", "homepage"):
         assert word in problems
     assert check_metadata(dict(meta, qgisMinimumVersion="3.34")) == []      # tested there by Henrik
+    no_flag = {k: v for k, v in meta.items() if k != "supportsQt6"}         # deprecated on plugins.qgis.org
+    assert check_metadata(no_flag) == []
     assert "qgisMinimumVersion" in " ".join(check_metadata(dict(meta, qgisMinimumVersion="3.28")))
 
 
@@ -98,7 +100,7 @@ def test_build_zip(tmp_path):
 
 
 def test_build_zip_rejects_bad_metadata(tmp_path):
-    plugins = _make_plugin(tmp_path, GOOD_META.replace("supportsQt6=True\n", ""))
+    plugins = _make_plugin(tmp_path, GOOD_META.replace("qgisMaximumVersion=4.99", "qgisMaximumVersion=3.99"))
     with pytest.raises(SystemExit):
         build_zip.build("geodrafter_test", str(plugins), str(tmp_path), str(tmp_path / "d"))
 

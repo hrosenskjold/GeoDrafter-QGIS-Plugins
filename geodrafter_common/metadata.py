@@ -41,8 +41,10 @@ def check_metadata(meta):
         problems.append("qgisMinimumVersion should be one of %s" % ", ".join(MIN_QGIS_ALLOWED))
     if meta.get("qgisMaximumVersion") and meta["qgisMaximumVersion"] != MAX_QGIS:
         problems.append("qgisMaximumVersion should be %s" % MAX_QGIS)
-    if meta.get("supportsQt6", "").strip().lower() not in ("true", "yes", "1"):
-        problems.append("supportsQt6 must be True")
+    # supportsQt6 is deprecated on plugins.qgis.org (Oct 2026): QGIS 4 support follows
+    # qgisMaximumVersion alone.
+    if "supportsQt6" in meta and meta["supportsQt6"].strip().lower() not in ("true", "yes", "1"):
+        problems.append("supportsQt6 must be True or left out")
     if meta.get("author") and meta["author"] != AUTHOR:
         problems.append("author should be %r" % AUTHOR)
     if meta.get("homepage") and not meta["homepage"].startswith(

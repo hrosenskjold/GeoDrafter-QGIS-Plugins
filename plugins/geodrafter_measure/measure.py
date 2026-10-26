@@ -19,7 +19,7 @@ from qgis.PyQt.QtWidgets import (
     QLineEdit, QPlainTextEdit, QPushButton, QRadioButton, QWidget,
 )
 from qgis.core import (
-    Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsDistanceArea,
+    Qgis, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsCsException, QgsDistanceArea,
     QgsFeature, QgsFeatureRequest, QgsField, QgsFields, QgsGeometry,
     QgsMemoryProviderUtils, QgsPointXY, QgsProject, QgsRectangle, QgsVectorLayer,
 )
@@ -154,7 +154,7 @@ def pick_feature(layers, point, tolerance, crs, project=None):
         to_map = QgsCoordinateTransform(layer.crs(), crs, project)
         try:
             search = to_layer.transformBoundingBox(rect)
-        except Exception:   # noqa: BLE001 – point outside the layer CRS's valid area
+        except QgsCsException:   # the click lies outside the area the layer's CRS can represent
             continue
         request = QgsFeatureRequest().setFilterRect(search)
         try:
