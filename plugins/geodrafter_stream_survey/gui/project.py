@@ -73,10 +73,14 @@ class SurveyState:
             self.structures = []
 
     # -- step 1 -----------------------------------------------------------------------
-    def run_import(self, path, code_table_path=None, kind=None, auto_vasp=True, **options):
+    def run_import(self, path, code_table_path=None, kind=None, auto_vasp=True, reader=None, **options):
+        """Step 1. ``reader(code_table) -> Survey`` replaces the file readers (a layer in the project)."""
         self._reset_from("import")
         self.code_table = codes.load_table(code_table_path) if code_table_path else codes.standard_table()
-        self.survey = read_survey(path, code_table=self.code_table, kind=kind, **options)
+        if reader is None:
+            def reader(table):
+                return read_survey(path, code_table=table, kind=kind, **options)
+        self.survey = reader(self.code_table)
         self.path = path
         self.vasp_codes = []
         self.base_code_table = self.code_table
@@ -85,7 +89,7 @@ class SurveyState:
             found = with_vasp_codes(self.survey, self.code_table)
             if found:
                 self.code_table, self.vasp_codes = found
-                self.survey = read_survey(path, code_table=self.code_table, kind=kind, **options)
+                self.survey = reader(self.code_table)
         first = self.survey.points[0] if self.survey.points else None
         self.checks_by_step["import"] = [
             Check("warning", "reader", w, first.x if first else 0.0, first.y if first else 0.0)

@@ -282,3 +282,91 @@ def test_inspire_features_and_own_line_in_other_crs(qapp):
     lay.selectByIds([feats[0].id()])
     coords = line_coords(lay, prefer_selected=True)
     assert 541000 < coords[0][0] < 541300
+
+
+def _layer_from_emlid(crs="EPSG:25832", z_in_geometry=False, drop_elevation=False):
+    """A memory point layer like an opened Emlid export (fields by name, file order kept)."""
+    import csv
+    from qgis.core import (QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsFeature, QgsField,
+                           QgsGeometry, QgsPoint, QgsProject, QgsVectorLayer)
+
+    def text_field(name):
+        try:
+            from qgis.PyQt.QtCore import QMetaType
+            return QgsField(name, QMetaType.Type.QString)
+        except TypeError:                     # QGIS < 3.38
+            from qgis.PyQt.QtCore import QVariant
+            return QgsField(name, QVariant.String)
+    rows = list(csv.DictReader(open(EMLID, encoding="utf-8")))
+    keep = ["Name", "Code", "Description", "Solution status", "Elevation RMS", "Antenna height"]
+    if not drop_elevation:
+        keep.append("Elevation")
+    uri = ("PointZ?crs=%s" if z_in_geometry else "Point?crs=%s") % crs
+    layer = QgsVectorLayer(uri, "emlid", "memory")
+    layer.dataProvider().addAttributes([text_field(k) for k in keep])
+    layer.updateFields()
+    t = QgsCoordinateTransform(QgsCoordinateReferenceSystem("EPSG:25832"), QgsCoordinateReferenceSystem(crs),
+                               QgsProject.instance())
+    feats = []
+    for r in rows:
+        f = QgsFeature(layer.fields())
+        p = t.transform(float(r["Easting"]), float(r["Northing"]))
+        f.setGeometry(QgsGeometry(QgsPoint(p.x(), p.y(), float(r["Elevation"]))) if z_in_geometry
+                      else QgsGeometry.fromPointXY(p))
+        f.setAttributes([r[k] for k in keep])
+        feats.append(f)
+    layer.dataProvider().addFeatures(feats)
+    return layer
+
+
+@needs_qgis
+def test_survey_from_project_layer(qapp):
+    from geodrafter_stream_survey.core import codes
+    from geodrafter_stream_survey.core.readers import read_survey
+    from geodrafter_stream_survey.gui.layer_source import is_point_layer, survey_from_layer
+    ref = read_survey(EMLID, code_table=codes.standard_table())
+    s = survey_from_layer(_layer_from_emlid(), code_table=codes.standard_table())
+    assert [p.name for p in s.points] == [p.name for p in ref.points]           # file order kept
+    assert [p.point_type for p in s.points] == [p.point_type for p in ref.points]
+    assert s.points[1].x == pytest.approx(ref.points[1].x) and s.points[1].z == pytest.approx(ref.points[1].z)
+    assert s.points[-1].solution_status == ref.points[-1].solution_status and s.reader == "layer"
+    # another CRS is transformed to UTM 32N; Z from the geometry when there is no Elevation field
+    s = survey_from_layer(_layer_from_emlid("EPSG:4326", z_in_geometry=True, drop_elevation=True))
+    assert s.points[1].x == pytest.approx(ref.points[1].x, abs=0.01)
+    assert s.points[1].z == pytest.approx(ref.points[1].z)
+    assert any("transformed from EPSG:4326" in w or "DVR90" in w for w in s.warnings)
+    assert is_point_layer(_layer_from_emlid())
+
+
+@needs_qgis
+def test_dock_imports_a_project_layer_and_takes_drops(qapp, tmp_path):
+    from qgis.core import QgsProject
+    from qgis.gui import QgsMapCanvas
+    from qgis.PyQt.QtCore import QMimeData, QUrl
+    from qgis_fakes import fake_iface
+    import geodrafter_stream_survey as pkg
+
+    layer = _layer_from_emlid()
+    QgsProject.instance().addMapLayer(layer)
+    iface = fake_iface(QgsMapCanvas(), None)
+    plugin = pkg.classFactory(iface)
+    plugin.initGui()
+    plugin.toggle(True)
+    d = plugin.dock
+    d.gpkg_edit.setText(str(tmp_path / "out.gpkg"))
+    # a layer dragged from the Layers panel
+    d.file_edit.layerDropped.emit(layer.id())
+    assert d.survey_layer() is layer and d.file_edit.text() == ""
+    plugin.run_step("import")
+    assert "import" in plugin.state.done, d.message.text()
+    assert len(plugin.state.survey.points) == 19 and plugin.state.survey.reader == "layer"
+    # a dropped file replaces the layer
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(EMLID)])
+    assert d.file_edit._decode(mime) == ("file", EMLID)
+    d.file_edit.setText(EMLID)
+    assert d.survey_layer() is None
+    plugin.run_step("import")
+    assert plugin.state.survey.reader != "layer"
+    plugin.unload()
+    QgsProject.instance().removeAllMapLayers()

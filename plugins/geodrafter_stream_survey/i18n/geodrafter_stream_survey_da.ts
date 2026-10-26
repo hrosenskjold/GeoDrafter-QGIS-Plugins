@@ -264,8 +264,20 @@
       <translation>én GeoPackage pr. opmåling (ved siden af feltfilen)</translation>
     </message>
     <message>
+      <source>Choose or drop a file – or drop a layer from the Layers panel</source>
+      <translation>Vælg eller træk en fil hertil – eller træk et lag fra lagpanelet</translation>
+    </message>
+    <message>
       <source>Field file:</source>
       <translation>Feltfil:</translation>
+    </message>
+    <message>
+      <source>A point layer already in the project, e.g. an Emlid export you have opened, a CSV or a GeoPackage layer. It is used instead of the file.</source>
+      <translation>Et punktlag, der allerede er i projektet, fx en åbnet Emlid-eksport, en CSV eller et GeoPackage-lag. Det bruges i stedet for filen.</translation>
+    </message>
+    <message>
+      <source>Or a layer in the project:</source>
+      <translation>Eller et lag i projektet:</translation>
     </message>
     <message>
       <source>Format:</source>
@@ -624,6 +636,10 @@
       <translation>GeoPackage:</translation>
     </message>
     <message>
+      <source>Layer: %s</source>
+      <translation>Lag: %s</translation>
+    </message>
+    <message>
       <source>No remarks.</source>
       <translation>Ingen bemærkninger.</translation>
     </message>
@@ -712,10 +728,6 @@
       <translation>Ingen token gemt endnu.</translation>
     </message>
     <message>
-      <source>Choose a field file.</source>
-      <translation>Vælg en feltfil.</translation>
-    </message>
-    <message>
       <source>%d points imported from %s.</source>
       <translation>%d punkter indlæst fra %s.</translation>
     </message>
@@ -758,6 +770,10 @@
     <message>
       <source>Code table saved: %s – import the file again to use it.</source>
       <translation>Kodetabel gemt: %s – indlæs filen igen for at bruge den.</translation>
+    </message>
+    <message>
+      <source>Choose a field file or a point layer in the project.</source>
+      <translation>Vælg en feltfil eller et punktlag i projektet.</translation>
     </message>
     <message>
       <source>%d VASP codes recognised and paired automatically (%d uncertain) – the code button below shows them.</source>

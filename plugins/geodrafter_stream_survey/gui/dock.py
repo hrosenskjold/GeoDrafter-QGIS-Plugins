@@ -34,10 +34,12 @@ GROUPING = (("auto", "Automatic"), ("attribute", "Section number in the code att
 def _layer_filter(kind):
     try:
         from qgis.core import Qgis
-        return {"line": Qgis.LayerFilter.LineLayer, "raster": Qgis.LayerFilter.RasterLayer}[kind]
+        return {"line": Qgis.LayerFilter.LineLayer, "raster": Qgis.LayerFilter.RasterLayer,
+                "point": Qgis.LayerFilter.PointLayer}[kind]
     except AttributeError:  # older QGIS
         from qgis.core import QgsMapLayerProxyModel
-        return {"line": QgsMapLayerProxyModel.LineLayer, "raster": QgsMapLayerProxyModel.RasterLayer}[kind]
+        return {"line": QgsMapLayerProxyModel.LineLayer, "raster": QgsMapLayerProxyModel.RasterLayer,
+                "point": QgsMapLayerProxyModel.PointLayer}[kind]
 
 
 def _spin(lo, hi, value, step=0.1, decimals=2, suffix=" m"):
@@ -120,16 +122,29 @@ class StreamSurveyDock(QDockWidget):
         return b
 
     def _page_import(self):
+        from qgis.gui import QgsMapLayerComboBox
+        from .layer_source import DropLineEdit
         w = QWidget()
         f = QFormLayout(w)
         row = QHBoxLayout()
-        self.file_edit = QLineEdit()
+        self.file_edit = DropLineEdit()
+        self.file_edit.setPlaceholderText(tr("Choose or drop a file – or drop a layer from the Layers panel"))
+        self.file_edit.textChanged.connect(self._file_typed)
         row.addWidget(self.file_edit, 1)
         b = QPushButton("…")
         b.setMaximumWidth(28)
         b.clicked.connect(self._browse_file)
         row.addWidget(b)
         f.addRow(tr("Field file:"), row)
+        self.layer_combo = QgsMapLayerComboBox()
+        self.layer_combo.setFilters(_layer_filter("point"))
+        self.layer_combo.setAllowEmptyLayer(True)
+        self.layer_combo.setLayer(None)
+        self.layer_combo.setToolTip(tr("A point layer already in the project, e.g. an Emlid export you have "
+                                       "opened, a CSV or a GeoPackage layer. It is used instead of the file."))
+        self.layer_combo.layerChanged.connect(self._layer_chosen)
+        self.file_edit.layerDropped.connect(self._layer_dropped)
+        f.addRow(tr("Or a layer in the project:"), self.layer_combo)
         self.reader_combo = QComboBox()
         for key, label in READERS:
             self.reader_combo.addItem(tr(label), key)
@@ -438,11 +453,40 @@ class StreamSurveyDock(QDockWidget):
         return w
 
     # -- helpers ----------------------------------------------------------------------
+    def survey_layer(self):
+        """The chosen project point layer, or None (then the file is used)."""
+        return self.layer_combo.currentLayer() if hasattr(self, "layer_combo") else None
+
+    def _file_typed(self, text):
+        if text.strip() and self.survey_layer() is not None:
+            self.layer_combo.setLayer(None)
+            self.file_edit.setPlaceholderText(
+                tr("Choose or drop a file – or drop a layer from the Layers panel"))
+
+    def _layer_dropped(self, layer_id):
+        from qgis.core import QgsProject
+        from .layer_source import is_point_layer
+        layer = QgsProject.instance().mapLayer(layer_id)
+        if is_point_layer(layer):
+            self.layer_combo.setLayer(layer)
+
+    def _layer_chosen(self, layer):
+        if layer is None:
+            return
+        from .layer_source import layer_file
+        path = layer_file(layer)
+        self.file_edit.setText("")
+        self.file_edit.setPlaceholderText(tr("Layer: %s") % layer.name())
+        if not self.gpkg_edit.text():
+            base = os.path.splitext(path)[0] if path else os.path.join(os.path.expanduser("~"), layer.name())
+            self.gpkg_edit.setText(base + "_stream_survey.gpkg")
+
     def _browse_file(self):
         start = os.path.dirname(self.file_edit.text())
         filt = tr("Survey files (*.csv *.txt *.shp *.zip *.dxf);;All files (*)")
         path, _f = QFileDialog.getOpenFileName(self, tr("Field file"), start, filt)
         if path:
+            self.layer_combo.setLayer(None)
             self.file_edit.setText(path)
             if not self.gpkg_edit.text():
                 self.gpkg_edit.setText(os.path.splitext(path)[0] + "_stream_survey.gpkg")

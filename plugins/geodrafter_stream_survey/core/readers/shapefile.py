@@ -90,9 +90,21 @@ def _cs_from_prj(prj_text):
 def read_shapefile_bytes(shp, dbf=None, prj=None, source="", columns=None):
     _type, pts = _read_shp(shp)
     headers, records = _read_dbf(dbf) if dbf else ([], [])
-    cols = map_columns(headers, columns, dbf=True) if headers else {}
     cs = _cs_from_prj(decode_bytes(prj)) if prj else ""
-    survey = Survey(source=os.path.basename(source), reader="shapefile")
+    survey = survey_from_rows(headers, records, pts, os.path.basename(source), "shapefile", cs, columns)
+    if survey.points and all(p.z is None for p in survey.points):
+        survey.warnings.append("The shapefile has no elevations (no Z and no Elevation field).")
+    return survey
+
+
+def survey_from_rows(headers, records, pts, source="", reader="layer", cs="", columns=None):
+    """A Survey from point geometries ``pts`` [(x, y, z or None) or None] and their attribute rows.
+
+    Shared by the shapefile reader and the plugin's "layer in the project" import. Columns are matched
+    by name as for Emlid's exports (Name, Code, Elevation, Solution status …); the geometry gives x/y,
+    and z when there is no elevation column."""
+    cols = map_columns(headers, columns, dbf=True) if headers else {}
+    survey = Survey(source=source, reader=reader)
     used = set(cols.values())
     for i, xyz in enumerate(pts):
         if xyz is None:
@@ -109,8 +121,6 @@ def read_shapefile_bytes(shp, dbf=None, prj=None, source="", columns=None):
         p = point_from_fields(len(survey.points), values, extra=extra)
         if p is not None:
             survey.points.append(p)
-    if survey.points and all(p.z is None for p in survey.points):
-        survey.warnings.append("The shapefile has no elevations (no Z and no Elevation field).")
     return survey
 
 

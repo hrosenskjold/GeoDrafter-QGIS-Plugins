@@ -160,17 +160,26 @@ class GeoDrafterStreamSurveyPlugin:
 
     def step_import(self):
         d = self.dock
-        path = d.file_edit.text().strip()
-        if not path or not os.path.exists(path):
-            raise ValueError(tr("Choose a field file."))
-        kind = d.reader_combo.currentData() or None
-        opts = {}
-        if kind == "field_text":
-            opts["layout"] = d.text_layout()
         table = d.table_path() or None
-        s = self.state.run_import(path, code_table_path=table, kind=kind, **opts)
+        layer = d.survey_layer()
+        if layer is not None:
+            from .layer_source import layer_file, survey_from_layer
+            path = layer_file(layer) or layer.name()
+            s = self.state.run_import(path, code_table_path=table,
+                                      reader=lambda t, lyr=layer: survey_from_layer(lyr, code_table=t))
+        else:
+            path = d.file_edit.text().strip()
+            if not path or not os.path.exists(path):
+                raise ValueError(tr("Choose a field file or a point layer in the project."))
+            kind = d.reader_combo.currentData() or None
+            opts = {}
+            if kind == "field_text":
+                opts["layout"] = d.text_layout()
+            s = self.state.run_import(path, code_table_path=table, kind=kind, **opts)
         if not d.gpkg_edit.text().strip():
-            d.gpkg_edit.setText(os.path.splitext(path)[0] + "_stream_survey.gpkg")
+            base = os.path.splitext(path)[0] if os.path.exists(path) else \
+                os.path.join(os.path.expanduser("~"), path)
+            d.gpkg_edit.setText(base + "_stream_survey.gpkg")
         types = {}
         for p in s.points:
             types[p.point_type] = types.get(p.point_type, 0) + 1
