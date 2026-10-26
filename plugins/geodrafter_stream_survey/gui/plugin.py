@@ -175,14 +175,24 @@ class GeoDrafterStreamSurveyPlugin:
         for p in s.points:
             types[p.point_type] = types.get(p.point_type, 0) + 1
         fix = sum(1 for p in s.points if p.is_fix)
-        d.import_summary.setText(tr("%d points read (%s); %d with FIX.") % (
-            len(s.points), ", ".join("%s %d" % kv for kv in sorted(types.items())), fix))
+        summary = tr("%d points read (%s); %d with FIX.") % (
+            len(s.points), ", ".join("%s %d" % kv for kv in sorted(types.items())), fix)
+        if self.state.vasp_codes:
+            unsure = sum(1 for m in self.state.vasp_codes if m.suggestion.confidence != "sure")
+            summary += " " + tr("%d VASP codes recognised and paired automatically (%d uncertain) – "
+                                "the code button below shows them.") % (len(self.state.vasp_codes), unsure)
+        d.import_summary.setText(summary)
         d.set_point_names([p.name for p in s.points])
         from ..core.codemap import unknown_codes
         n_unknown = len(unknown_codes(s, self.state.code_table).rows)
-        d.unknown_button.setEnabled(n_unknown > 0)
-        d.unknown_button.setText(tr("Unknown codes in the file (%d)…") % n_unknown if n_unknown
-                                 else tr("Unknown codes in the file…"))
+        n_vasp = len(self.state.vasp_codes)
+        d.unknown_button.setEnabled(n_unknown > 0 or n_vasp > 0)
+        if n_unknown:
+            d.unknown_button.setText(tr("Unknown codes in the file (%d)…") % n_unknown)
+        elif n_vasp:
+            d.unknown_button.setText(tr("Check the VASP codes (%d)…") % n_vasp)
+        else:
+            d.unknown_button.setText(tr("Unknown codes in the file…"))
         self.info(tr("%d points imported from %s.") % (len(s.points), os.path.basename(path)))
 
     def step_structures(self):
@@ -513,9 +523,10 @@ class GeoDrafterStreamSurveyPlugin:
         from .codemap_dialog import CodeMapDialog
         if self.state.survey is None or self.state.code_table is None:
             return
-        rows = unknown_codes(self.state.survey, self.state.code_table)
-        dlg = CodeMapDialog(self.dock, map_codes(rows), name="%s (+)" % self.state.code_table.name,
-                            base_table=self.state.code_table, extend=True)
+        base = self.state.base_code_table or self.state.code_table
+        mapped = list(self.state.vasp_codes)
+        mapped += map_codes(unknown_codes(self.state.survey, self.state.code_table))
+        dlg = CodeMapDialog(self.dock, mapped, name="%s (+)" % base.name, base_table=base, extend=True)
         if dlg.exec():
             self._table_saved(dlg.saved_path)
 

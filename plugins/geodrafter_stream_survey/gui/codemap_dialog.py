@@ -106,7 +106,7 @@ class CodeMapDialog(QDialog):
             self.summary.setText(self.summary.text() + "  " + " ".join(code_list.warnings))
 
     def open_list(self):
-        filt = tr("Code lists (*.csv *.txt *.xlsx *.yaml *.yml);;All files (*)")
+        filt = tr("Code lists (*.csv *.txt *.xlsx *.yaml *.yml *.ini *.fxl);;All files (*)")
         path, _f = QFileDialog.getOpenFileName(self, tr("Code list"), "", filt)
         if not path:
             return

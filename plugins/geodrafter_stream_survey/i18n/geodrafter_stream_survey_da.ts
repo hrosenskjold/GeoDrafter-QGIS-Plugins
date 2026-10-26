@@ -88,8 +88,8 @@
       <translation>Grund</translation>
     </message>
     <message>
-      <source>Code lists (*.csv *.txt *.xlsx *.yaml *.yml);;All files (*)</source>
-      <translation>Kodelister (*.csv *.txt *.xlsx *.yaml *.yml);;Alle filer (*)</translation>
+      <source>Code lists (*.csv *.txt *.xlsx *.yaml *.yml *.ini *.fxl);;All files (*)</source>
+      <translation>Kodelister (*.csv *.txt *.xlsx *.yaml *.yml *.ini *.fxl);;Alle filer (*)</translation>
     </message>
     <message>
       <source>Code table from a code list</source>
@@ -688,6 +688,10 @@
       <translation>Om GeoDrafter Stream Survey</translation>
     </message>
     <message>
+      <source>%d points read (%s); %d with FIX.</source>
+      <translation>%d punkter indlæst (%s); %d med FIX.</translation>
+    </message>
+    <message>
       <source>Export</source>
       <translation>Eksport</translation>
     </message>
@@ -706,10 +710,6 @@
     <message>
       <source>Choose a field file.</source>
       <translation>Vælg en feltfil.</translation>
-    </message>
-    <message>
-      <source>%d points read (%s); %d with FIX.</source>
-      <translation>%d punkter indlæst (%s); %d med FIX.</translation>
     </message>
     <message>
       <source>%d points imported from %s.</source>
@@ -756,6 +756,10 @@
       <translation>Kodetabel gemt: %s – indlæs filen igen for at bruge den.</translation>
     </message>
     <message>
+      <source>%d VASP codes recognised and paired automatically (%d uncertain) – the code button below shows them.</source>
+      <translation>%d VASP-koder genkendt og parret automatisk (%d usikre) – kodeknappen nedenfor viser dem.</translation>
+    </message>
+    <message>
       <source>Unknown codes in the file (%d)…</source>
       <translation>Ukendte koder i filen (%d)…</translation>
     </message>
@@ -782,6 +786,10 @@
     <message>
       <source>Step failed: %s</source>
       <translation>Trinnet fejlede: %s</translation>
+    </message>
+    <message>
+      <source>Check the VASP codes (%d)…</source>
+      <translation>Tjek VASP-koderne (%d)…</translation>
     </message>
     <message>
       <source>Choose a line layer.</source>

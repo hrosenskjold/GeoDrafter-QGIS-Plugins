@@ -31,6 +31,8 @@ STRUCTURE_TYPES = ("pipe_invert", "pipe_top", "bridge_deck", "weir_crest", "drai
 class SurveyState:
     path: str = ""
     code_table: object = None
+    vasp_codes: list = field(default_factory=list)   # VASP codes paired automatically on import
+    base_code_table: object = None                   # the chosen table before the VASP codes were added
     survey: object = None
     groups: dict = field(default_factory=dict)
     ungrouped: list = field(default_factory=list)
@@ -71,11 +73,19 @@ class SurveyState:
             self.structures = []
 
     # -- step 1 -----------------------------------------------------------------------
-    def run_import(self, path, code_table_path=None, kind=None, **options):
+    def run_import(self, path, code_table_path=None, kind=None, auto_vasp=True, **options):
         self._reset_from("import")
         self.code_table = codes.load_table(code_table_path) if code_table_path else codes.standard_table()
         self.survey = read_survey(path, code_table=self.code_table, kind=kind, **options)
         self.path = path
+        self.vasp_codes = []
+        self.base_code_table = self.code_table
+        if auto_vasp and self.survey.points:
+            from ..core.codemap import with_vasp_codes
+            found = with_vasp_codes(self.survey, self.code_table)
+            if found:
+                self.code_table, self.vasp_codes = found
+                self.survey = read_survey(path, code_table=self.code_table, kind=kind, **options)
         first = self.survey.points[0] if self.survey.points else None
         self.checks_by_step["import"] = [
             Check("warning", "reader", w, first.x if first else 0.0, first.y if first else 0.0)

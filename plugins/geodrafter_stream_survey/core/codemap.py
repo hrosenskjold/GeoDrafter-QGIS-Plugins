@@ -11,6 +11,10 @@ confidence – ``sure``, ``unsure`` or ``unknown`` – and the reason, so the us
 only has to look at the uncertain ones. Left/right variants (V/H, L/R) are
 recognised and become aliases of their base code.
 
+VASP/VASPGPS code lists (tag files, numbered tag lists, Trimble .fxl libraries) and
+VASP field codes in a survey are recognised by their VASP tag (``vasp.py``) and
+paired with a point type automatically.
+
 No code lists of others are shipped; the user loads their own file.
 """
 
@@ -21,6 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from . import vasp
 from .codes import CodeEntry, CodeTable, standard_table, table_from_dict
 from .model import POINT_TYPES
 
@@ -79,6 +84,8 @@ class CodeRow:
     code: str
     description: str = ""
     given_type: str = ""            # a point type stated in the list itself (our YAML), if any
+    given_reason: str = ""          # why (e.g. the VASP tag), shown to the user
+    given_sure: bool = True
 
 
 @dataclass
@@ -187,7 +194,24 @@ def read_code_list(path):
             w.writerow(["" if v is None else str(v) for v in row])
         return parse_text(buf.getvalue(), name)
     from .readers.common import read_text_file
-    return parse_text(read_text_file(path), name)
+    text = read_text_file(path)
+    if vasp.looks_like_vasp(text):
+        return vasp_code_list(text, name)
+    return parse_text(text, name)
+
+
+def vasp_code_list(text, source=""):
+    """A CodeList from a VASPGPS tag file / tag list / .fxl library, each code typed by its VASP tag."""
+    title, rows, warnings = vasp.parse(text)
+    out = CodeList(source=title or source, warnings=list(warnings))
+    for code, tag, desc in rows:
+        c = vasp.classify(code, tag)
+        if c is None:
+            out.rows.append(CodeRow(code, desc))
+            continue
+        typ, _side, sure, reason = c
+        out.rows.append(CodeRow(code, desc or reason.split("(", 1)[-1].rstrip(")"), typ, reason, sure))
+    return out
 
 
 # -- suggesting -----------------------------------------------------------------------------
@@ -233,6 +257,10 @@ def _first_type(desc, hits):
 
 def suggest(code, description=""):
     """A point type for one code, with confidence and reason."""
+    v = vasp.classify(code)
+    if v is not None:
+        typ, vside, sure, reason = v
+        return Suggestion(typ, SURE if sure else UNSURE, reason, vside, code.strip().upper())
     base, side = _strip(code)
     side = side or _side_of(code, description)
     hits = _desc_hits(description) if description else []
@@ -284,7 +312,8 @@ def map_codes(code_list):
     out = []
     for r in code_list.rows:
         if r.given_type:
-            s = Suggestion(r.given_type, SURE, "the type is given in the list", None, r.code.upper())
+            s = Suggestion(r.given_type, SURE if r.given_sure else UNSURE,
+                           r.given_reason or "the type is given in the list", None, r.code.upper())
         else:
             s = suggest(r.code, r.description)
         out.append(MappedCode(r, s))
@@ -351,6 +380,22 @@ def unknown_codes(survey, table):
             seen.add(c.upper())
             out.append(CodeRow(c, p.description))
     return CodeList(out, "survey")
+
+
+def with_vasp_codes(survey, table, min_share=0.5):
+    """``table`` extended with the survey's VASP codes it does not know, or None.
+
+    Used on import: when at least ``min_share`` of the unknown codes are VASP codes, they are paired
+    automatically, so a survey made with VASPGPS codes needs no code table of its own."""
+    unknown = unknown_codes(survey, table)
+    if not unknown.rows or vasp.survey_share([r.code for r in unknown.rows]) < min_share:
+        return None
+    mapped = [m for m in map_codes(unknown) if m.suggestion.reason.startswith(("VASP", "VASPGPS"))]
+    if not mapped:
+        return None
+    t = extend_table(table, mapped)
+    t.name = "%s + VASP" % table.name
+    return t, mapped
 
 
 def slug(name):
