@@ -140,8 +140,9 @@ class StreamSurveyDock(QDockWidget):
         self.layer_combo.setFilters(_layer_filter("point"))
         self.layer_combo.setAllowEmptyLayer(True)
         self.layer_combo.setLayer(None)
-        self.layer_combo.setToolTip(tr("A point layer already in the project, e.g. an Emlid export you have "
-                                       "opened, a CSV or a GeoPackage layer. It is used instead of the file."))
+        self.layer_combo.setToolTip(tr("A point layer already in the project, e.g. an Emlid export you "
+                                       "have opened, a CSV or a GeoPackage layer. It is used instead of the "
+                                       "file."))
         self.layer_combo.layerChanged.connect(self._layer_chosen)
         self.file_edit.layerDropped.connect(self._layer_dropped)
         f.addRow(tr("Or a layer in the project:"), self.layer_combo)
