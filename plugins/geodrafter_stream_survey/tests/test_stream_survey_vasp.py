@@ -173,3 +173,66 @@ def test_builtin_vasp_table_is_in_sync_and_works(tmp_path):
     survey = read_survey(_vasp_survey(tmp_path), code_table=shipped)
     t, mapped = with_vasp_codes(survey, shipped)
     assert read_survey(_vasp_survey(tmp_path), code_table=t).points[1].point_type == "bank_top"
+
+
+def _numbered_survey(tmp_path):
+    """Like an Emlid export made with a VASPGPS-style code library: 'Code' holds only the number,
+    'Code description' the code (13 / 13PROFILPKT); sections run from a start code to an end code,
+    with bed break points (8KNEKPKT) between them."""
+    import csv
+    header = ["Name", "Code", "Code description", "Easting", "Northing", "Elevation", "Description",
+              "Solution status", "CS name"]
+    cs = "ETRS89 / UTM zone 32N + DVR90 height"
+    rows = []
+
+    def add(code, desc, e, n, z):
+        rows.append([str(len(rows) + 1), code, desc, "%.3f" % e, "%.3f" % n, "%.3f" % z, "", "FIX", cs])
+
+    for k, n0 in enumerate((6100000.0, 6100020.0)):
+        add("12", "12PROFILSTART_V", 550000.0, n0 + 0.0, 3.5)   # terrain, left
+        add("17", "17PROFILKANT", 550001.0, n0, 3.4)
+        add("13", "13PROFILPKT", 550002.0, n0, 2.0)
+        add("9", "9VANDSPEJL", 550003.0, n0, 1.0)
+        add("15", "15PROFILMIDT", 550004.0, n0, 0.5)
+        add("13", "13PROFILPKT", 550005.0, n0, 1.2)
+        add("17", "17PROFILKANT", 550007.0, n0, 3.4)
+        add("14", "14PROFILSLUT", 550008.0, n0, 3.5)
+        if k == 0:
+            for j in range(1, 4):                                  # bed points between the sections
+                add("8", "8KNEKPKT", 550004.0, n0 + 5.0 * j, 0.5)
+    p = tmp_path / "numbered.csv"
+    with open(p, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(rows)
+    return str(p)
+
+
+def test_code_field_is_found_and_sections_follow_start_end(tmp_path):
+    from geodrafter_stream_survey.core import codefield
+    from geodrafter_stream_survey.core.geometry import group_profiles
+    from geodrafter_stream_survey.gui.project import SurveyState
+    path = _numbered_survey(tmp_path)
+    survey = read_survey(path, code_table=codes.standard_table())
+    assert survey.points[0].code == "12" and survey.points[0].code_description == "12PROFILSTART_V"
+    assert codefield.candidate_columns(survey)[:2] == ["code", "code_description"]
+    col, share = codefield.best_column(survey, codes.standard_table())
+    assert col == "code_description" and share == 1.0
+    st = SurveyState()
+    s = st.run_import(path)
+    assert st.code_column == "code_description" and st.code_column_auto
+    assert s.points[0].code == "12PROFILSTART_V" and s.points[0].extra["Code (file)"] == "12"
+    types = [p.point_type for p in s.points]
+    assert types[:8] == ["terrain", "bank_top", "knick", "water_level", "bed", "knick", "bank_top", "terrain"]
+    assert types[8:11] == ["bed"] * 3                                # 8KNEKPKT: bed points along the stream
+    assert s.points[0].section_role == "section_start" and s.points[7].section_role == "section_end"
+    groups, ungrouped = group_profiles(s.points)                     # auto → start/end codes
+    assert [len(g) for g in groups.values()] == [8, 8]
+    assert [p.code for p in ungrouped] == ["8KNEKPKT"] * 3
+    # the user can still insist on the Code field: then the numbers are unknown codes
+    s = st.run_import(path, code_column="code", auto_vasp=False)
+    assert st.code_column == "code" and not any(p.code_known for p in s.points)
+    rows = unknown_codes(s, st.code_table).rows
+    assert {r.code: r.count for r in rows}["13"] == 4
+    m = {x.row.code: x for x in map_codes(unknown_codes(s, st.code_table))}
+    assert m["17"].point_type == "bank_top" and "17PROFILKANT" in m["17"].suggestion.reason

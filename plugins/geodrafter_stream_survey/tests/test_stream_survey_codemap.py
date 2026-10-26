@@ -172,7 +172,7 @@ def test_codemap_dialog_review_and_save(qapp, tmp_path, monkeypatch):
     assert hidden == sum(1 for m in dlg.mapped if m.suggestion.confidence == "sure") and hidden < 15
     # the user corrects HEG (unknown) to "other" explicitly and KN to weir crest
     r = [m.row.code for m in dlg.mapped].index("KN")
-    combo = dlg.table.cellWidget(r, 2)
+    combo = dlg.table.cellWidget(r, dlg.TYPE_COL)
     combo.setCurrentIndex(combo.findData("weir_crest"))
     assert dlg.mapped[r].point_type == "weir_crest"
     dlg.save()

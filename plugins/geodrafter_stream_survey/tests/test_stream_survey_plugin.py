@@ -370,3 +370,49 @@ def test_dock_imports_a_project_layer_and_takes_drops(qapp, tmp_path):
     assert plugin.state.survey.reader != "layer"
     plugin.unload()
     QgsProject.instance().removeAllMapLayers()
+
+
+@needs_qgis
+def test_code_pairing_pops_up_and_reimports(qapp, tmp_path, monkeypatch):
+    """Unknown codes open the pairing by itself; the field can be changed there; saving re-imports."""
+    from qgis.core import QgsProject
+    from qgis.gui import QgsMapCanvas
+    from qgis_fakes import fake_iface
+    import geodrafter_stream_survey as pkg
+    from geodrafter_stream_survey.gui import codemap_dialog as cd
+    from test_stream_survey_vasp import _numbered_survey
+
+    monkeypatch.setattr(cd, "user_table_dir", lambda: str(tmp_path))
+    seen = {}
+
+    def fake_exec(dlg):
+        seen["fields"] = [dlg.field_combo.itemData(i) for i in range(dlg.field_combo.count())]
+        seen["first"] = (dlg.field, len(dlg.mapped))
+        dlg.field_combo.setCurrentIndex(dlg.field_combo.findData("code_description"))   # user picks the field
+        seen["after"] = (dlg.field, len(dlg.mapped), dlg.mapped[0].suggestion.reason)
+        dlg.save()
+        return True
+
+    monkeypatch.setattr(cd.CodeMapDialog, "exec", fake_exec)
+    plugin = pkg.classFactory(fake_iface(QgsMapCanvas(), None))
+    plugin.initGui()
+    plugin.toggle(True)
+    d = plugin.dock
+    d.file_edit.setText(_numbered_survey(tmp_path))
+    d.gpkg_edit.setText(str(tmp_path / "out.gpkg"))
+    d.code_field_combo.setCurrentIndex(d.code_field_combo.findData("auto"))
+    plugin.run_step("import")
+    assert plugin.state.code_column == "code_description"           # found by itself: no pop-up needed
+    assert "Code description" in d.import_summary.text()
+    d.code_field_combo.setCurrentIndex(d.code_field_combo.findData("code"))   # the user forces 'Code'
+    plugin.popup_codes = False
+    plugin.run_step("import")
+    assert d.unknown_button.isEnabled() and "Unknown codes" in d.unknown_button.text()
+    plugin.unknown_codes(popup=True)                                 # what the pop-up does
+    assert seen["first"][0] == "code" and "code_description" in seen["fields"]
+    assert seen["after"][0] == "code_description" and seen["after"][2].startswith("VASP tag")
+    assert plugin.state.code_column == "code_description"            # re-imported with the saved table
+    assert all(p.code_known for p in plugin.state.survey.points)
+    assert d.table_path().startswith(str(tmp_path))
+    plugin.unload()
+    QgsProject.instance().removeAllMapLayers()

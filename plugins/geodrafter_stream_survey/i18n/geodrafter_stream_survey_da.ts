@@ -72,6 +72,10 @@
       <translation>Kode</translation>
     </message>
     <message>
+      <source>Points</source>
+      <translation>Punkter</translation>
+    </message>
+    <message>
       <source>Description</source>
       <translation>Beskrivelse</translation>
     </message>
@@ -90,10 +94,6 @@
     <message>
       <source>Code lists (*.csv *.txt *.xlsx *.yaml *.yml *.ini *.fxl);;All files (*)</source>
       <translation>Kodelister (*.csv *.txt *.xlsx *.yaml *.yml *.ini *.fxl);;Alle filer (*)</translation>
-    </message>
-    <message>
-      <source>Code table from a code list</source>
-      <translation>Kodetabel fra en kodeliste</translation>
     </message>
     <message>
       <source>Open code list…</source>
@@ -120,6 +120,14 @@
       <translation>Kodeliste</translation>
     </message>
     <message>
+      <source>Pair the survey codes</source>
+      <translation>Par opmålingens koder</translation>
+    </message>
+    <message>
+      <source>Code table from a code list</source>
+      <translation>Kodetabel fra en kodeliste</translation>
+    </message>
+    <message>
       <source>Name of the code table:</source>
       <translation>Kodetabellens navn:</translation>
     </message>
@@ -134,6 +142,10 @@
     <message>
       <source>Open or paste a code list first.</source>
       <translation>Åbn eller indsæt først en kodeliste.</translation>
+    </message>
+    <message>
+      <source>The codes are in the field:</source>
+      <translation>Koderne står i feltet:</translation>
     </message>
     <message>
       <source>Import survey</source>
@@ -248,6 +260,10 @@
       <translation>Profilnummer i beskrivelsen</translation>
     </message>
     <message>
+      <source>Start and end codes (VASP: profile start … profile end)</source>
+      <translation>Start- og slutkoder (VASP: profilstart … profilslut)</translation>
+    </message>
+    <message>
       <source>Survey order and distance</source>
       <translation>Opmålingsrækkefølge og afstand</translation>
     </message>
@@ -290,6 +306,18 @@
     <message>
       <source>Text columns:</source>
       <translation>Tekstkolonner:</translation>
+    </message>
+    <message>
+      <source>Automatic (the field whose codes are recognised)</source>
+      <translation>Automatisk (feltet hvis koder genkendes)</translation>
+    </message>
+    <message>
+      <source>The field that holds the survey codes. Emlid's 'Code' may only hold a number from the code library, while 'Code description' holds the code itself (e.g. 13 / 13PROFILPKT).</source>
+      <translation>Feltet med opmålingens koder. Emlids 'Code' kan nøjes med et nummer fra kodebiblioteket, mens 'Code description' rummer selve koden (fx 13 / 13PROFILPKT).</translation>
+    </message>
+    <message>
+      <source>Code field:</source>
+      <translation>Kodefelt:</translation>
     </message>
     <message>
       <source>Translates the survey codes to point types.</source>
@@ -728,6 +756,10 @@
       <translation>Ingen token gemt endnu.</translation>
     </message>
     <message>
+      <source>Choose a field file or a point layer in the project.</source>
+      <translation>Vælg en feltfil eller et punktlag i projektet.</translation>
+    </message>
+    <message>
       <source>%d points imported from %s.</source>
       <translation>%d punkter indlæst fra %s.</translation>
     </message>
@@ -768,12 +800,12 @@
       <translation>%d profiler forlænget: %d OK, %d til gennemsyn, %d fejl.</translation>
     </message>
     <message>
-      <source>Code table saved: %s – import the file again to use it.</source>
-      <translation>Kodetabel gemt: %s – indlæs filen igen for at bruge den.</translation>
+      <source>Some codes in the survey are not in the code table '%s'. Check the suggested point types, change the ones that are wrong and save – the survey is then imported again with the new code table.</source>
+      <translation>Nogle af opmålingens koder findes ikke i kodetabellen '%s'. Tjek de foreslåede punkttyper, ret dem der er forkerte, og gem – så indlæses opmålingen igen med den nye kodetabel.</translation>
     </message>
     <message>
-      <source>Choose a field file or a point layer in the project.</source>
-      <translation>Vælg en feltfil eller et punktlag i projektet.</translation>
+      <source>Code table saved: %s – import the file again to use it.</source>
+      <translation>Kodetabel gemt: %s – indlæs filen igen for at bruge den.</translation>
     </message>
     <message>
       <source>%d VASP codes recognised and paired automatically (%d uncertain) – the code button below shows them.</source>
@@ -800,12 +832,24 @@
       <translation>GeoPackage kunne ikke skrives: %s</translation>
     </message>
     <message>
+      <source>Code table saved: %s – the survey was imported again with it.</source>
+      <translation>Kodetabel gemt: %s – opmålingen er indlæst igen med den.</translation>
+    </message>
+    <message>
       <source>Saved %s – import it in Emlid Flow 360 under Code libraries.</source>
       <translation>%s er gemt – indlæs den i Emlid Flow 360 under Code libraries.</translation>
     </message>
     <message>
       <source>Step failed: %s</source>
       <translation>Trinnet fejlede: %s</translation>
+    </message>
+    <message>
+      <source>Codes taken from the field '%s' (chosen automatically).</source>
+      <translation>Koderne er taget fra feltet '%s' (valgt automatisk).</translation>
+    </message>
+    <message>
+      <source>Codes taken from the field '%s'.</source>
+      <translation>Koderne er taget fra feltet '%s'.</translation>
     </message>
     <message>
       <source>Check the VASP codes (%d)…</source>
@@ -882,10 +926,6 @@
     <message>
       <source>Drawing</source>
       <translation>Tegning</translation>
-    </message>
-    <message>
-      <source>Points</source>
-      <translation>Punkter</translation>
     </message>
     <message>
       <source>No section selected.</source>

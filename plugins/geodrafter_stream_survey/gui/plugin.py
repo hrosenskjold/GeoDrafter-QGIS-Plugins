@@ -73,6 +73,8 @@ class GeoDrafterStreamSurveyPlugin:
         self.layers = {}
         self.view = None
         self.pick_tool = None
+        self.popup_codes = True      # open the code pairing by itself when an import has unknown codes
+        self._last_import = None
         i18n.install(self.plugin_dir)
 
     # -- QGIS plugin API ------------------------------------------------------------------
@@ -158,41 +160,53 @@ class GeoDrafterStreamSurveyPlugin:
             if step in ("profiles", "terrain") and self.state.profiles:
                 self.show_view()
 
-    def step_import(self):
+    def _import_params(self):
+        """How step 1 reads the survey now: (path, kwargs for SurveyState.run_import)."""
         d = self.dock
         table = d.table_path() or None
         layer = d.survey_layer()
         if layer is not None:
             from .layer_source import layer_file, survey_from_layer
             path = layer_file(layer) or layer.name()
-            s = self.state.run_import(path, code_table_path=table,
-                                      reader=lambda t, lyr=layer: survey_from_layer(lyr, code_table=t))
-        else:
-            path = d.file_edit.text().strip()
-            if not path or not os.path.exists(path):
-                raise ValueError(tr("Choose a field file or a point layer in the project."))
-            kind = d.reader_combo.currentData() or None
-            opts = {}
-            if kind == "field_text":
-                opts["layout"] = d.text_layout()
-            s = self.state.run_import(path, code_table_path=table, kind=kind, **opts)
+            return path, dict(code_table_path=table,
+                              reader=lambda t, lyr=layer: survey_from_layer(lyr, code_table=t))
+        path = d.file_edit.text().strip()
+        if not path or not os.path.exists(path):
+            raise ValueError(tr("Choose a field file or a point layer in the project."))
+        kind = d.reader_combo.currentData() or None
+        opts = {}
+        if kind == "field_text":
+            opts["layout"] = d.text_layout()
+        return path, dict(code_table_path=table, kind=kind, **opts)
+
+    def step_import(self):
+        from ..core import codefield
+        from ..core.codemap import unknown_codes
+        d = self.dock
+        path, kw = self._import_params()
+        self._last_import = (path, kw)
+        s = self.state.run_import(path, code_column=d.code_field(), **kw)
         if not d.gpkg_edit.text().strip():
             base = os.path.splitext(path)[0] if os.path.exists(path) else \
                 os.path.join(os.path.expanduser("~"), path)
             d.gpkg_edit.setText(base + "_stream_survey.gpkg")
+        d.set_code_fields([(c, codefield.label(c)) for c in self.state.code_columns])
         types = {}
         for p in s.points:
             types[p.point_type] = types.get(p.point_type, 0) + 1
         fix = sum(1 for p in s.points if p.is_fix)
         summary = tr("%d points read (%s); %d with FIX.") % (
             len(s.points), ", ".join("%s %d" % kv for kv in sorted(types.items())), fix)
+        if self.state.code_column:
+            summary += " " + (tr("Codes taken from the field '%s' (chosen automatically).")
+                              if self.state.code_column_auto else tr("Codes taken from the field '%s'.")) \
+                % codefield.label(self.state.code_column)
         if self.state.vasp_codes:
             unsure = sum(1 for m in self.state.vasp_codes if m.suggestion.confidence != "sure")
             summary += " " + tr("%d VASP codes recognised and paired automatically (%d uncertain) – "
                                 "the code button below shows them.") % (len(self.state.vasp_codes), unsure)
         d.import_summary.setText(summary)
         d.set_point_names([p.name for p in s.points])
-        from ..core.codemap import unknown_codes
         n_unknown = len(unknown_codes(s, self.state.code_table).rows)
         n_vasp = len(self.state.vasp_codes)
         d.unknown_button.setEnabled(n_unknown > 0 or n_vasp > 0)
@@ -203,6 +217,10 @@ class GeoDrafterStreamSurveyPlugin:
         else:
             d.unknown_button.setText(tr("Unknown codes in the file…"))
         self.info(tr("%d points imported from %s.") % (len(s.points), os.path.basename(path)))
+        if n_unknown and self.popup_codes:
+            # the code pairing opens by itself when codes are unknown (after this step has finished)
+            from qgis.PyQt.QtCore import QTimer
+            QTimer.singleShot(0, lambda: self.unknown_codes(popup=True))
 
     def step_structures(self):
         res = self.state.run_structures()
@@ -527,23 +545,56 @@ class GeoDrafterStreamSurveyPlugin:
         if dlg.mapped and dlg.exec():
             self._table_saved(dlg.saved_path)
 
-    def unknown_codes(self):
+    def _pairing(self):
+        """[MappedCode] to review for the current import: the VASP codes paired automatically and the
+        codes the table does not know (with the number of points)."""
         from ..core.codemap import map_codes, unknown_codes
+        mapped = list(self.state.vasp_codes)
+        mapped += map_codes(unknown_codes(self.state.survey, self.state.code_table))
+        return mapped
+
+    def _pairing_for_field(self, key):
+        """Re-read the survey with the codes from field ``key`` and return the new pairing."""
+        path, kw = self._last_import
+        self.state.run_import(path, code_column=key, **kw)
+        return self._pairing()
+
+    def unknown_codes(self, popup=False):
+        """The code pairing ("code generator"): every code of the survey that needs a decision, with a
+        suggested point type, the reason and the number of points; the field holding the codes can be
+        changed. Saving makes a code table and imports the survey again with it."""
+        from ..core import codefield
         from .codemap_dialog import CodeMapDialog
         if self.state.survey is None or self.state.code_table is None:
             return
         base = self.state.base_code_table or self.state.code_table
-        mapped = list(self.state.vasp_codes)
-        mapped += map_codes(unknown_codes(self.state.survey, self.state.code_table))
-        dlg = CodeMapDialog(self.dock, mapped, name="%s (+)" % base.name, base_table=base, extend=True)
+        fields = [(c, codefield.label(c)) for c in self.state.code_columns]
+        current = self.state.code_column or codefield.CODE
+        intro = tr("Some codes in the survey are not in the code table '%s'. Check the suggested point "
+                   "types, change the ones that are wrong and save – the survey is then imported again with "
+                   "the new code table.") % base.name if popup else ""
+        dlg = CodeMapDialog(self.dock, self._pairing(), name="%s (+)" % base.name, base_table=base,
+                            extend=True, fields=fields if getattr(self, "_last_import", None) else None,
+                            field=current, on_field=self._pairing_for_field, intro=intro)
         if dlg.exec():
-            self._table_saved(dlg.saved_path)
+            self._table_saved(dlg.saved_path, reimport=True, field=dlg.field)
 
-    def _table_saved(self, path):
+    def _table_saved(self, path, reimport=False, field=None):
         if not path:
             return
         self.dock.refresh_tables(select=path)
+        if reimport and getattr(self, "_last_import", None):
+            if field:
+                self.dock.set_code_fields(self._code_field_items(), select=field)
+            self.run_step("import")
+            self.info(tr("Code table saved: %s – the survey was imported again with it.")
+                      % os.path.basename(path))
+            return
         self.info(tr("Code table saved: %s – import the file again to use it.") % os.path.basename(path))
+
+    def _code_field_items(self):
+        from ..core import codefield
+        return [(c, codefield.label(c)) for c in (self.state.code_columns or [])]
 
     def export_code_library(self):
         from ..core import codes

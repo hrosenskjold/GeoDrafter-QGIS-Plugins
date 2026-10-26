@@ -51,7 +51,9 @@ class SurveyPoint:
     z: Optional[float]             # Elevation (DVR90 when the CS says so)
     code: str = ""
     description: str = ""
+    code_description: str = ""     # Emlid's "Code description" (the code library's text), if exported
     point_type: str = "other"      # one of POINT_TYPES, from the code table
+    section_role: str = ""         # "section_start" / "section_end" from the code table (VASP start/end)
     code_known: bool = False       # False when the code was not in the code table
     lon: Optional[float] = None
     lat: Optional[float] = None
@@ -104,6 +106,9 @@ class Survey:
         """Set ``point_type``/``code_known`` on every point from a CodeTable."""
         for p in self.points:
             p.point_type, p.code_known = table.classify(p.code, p.description)
+            e = table.lookup(p.code) if p.code_known else None
+            p.section_role = getattr(e, "role", "") if e is not None else ""
+        self.warnings = [w for w in self.warnings if not w.startswith("Codes not in code table")]
         unknown = sorted({p.code for p in self.points if not p.code_known and p.code})
         if unknown:
             self.warnings.append(

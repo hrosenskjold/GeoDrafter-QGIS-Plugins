@@ -43,7 +43,7 @@ TAGS = {
     207: ("terrain", "right", True, "intermediate point, terrain on the right"),
     209: ("other", None, True, "intermediate point at the stream centre (elevation not used)"),
     210: ("water_level", None, True, "intermediate point, water level"),
-    220: ("other", None, True, "bend in the stream between cross-sections (elevation not used)"),
+    220: ("bed", None, True, "break point along the stream between cross-sections, on the bed"),
     221: ("bed", None, True, "intermediate point on the bed"),
     231: ("other", "left", True, "other point on the left (text only)"),
     232: ("other", "right", True, "other point on the right (text only)"),
@@ -113,6 +113,17 @@ EXTRA = {
 _OVERGANG = re.compile(r"^OVERGANG\d*$")
 
 _BY_NAME = {n: tag for tag, names in NAMES.items() for n in names}
+
+# VASP surveys a cross-section from its start point (tag 100/101) to its end point (tag 199);
+# the points in between are the section, points outside belong to no section.
+ROLES = {100: "section_start", 101: "section_start", 199: "section_end"}
+
+
+def role(code, tag=None):
+    """"section_start" / "section_end" / "" for a VASP code."""
+    if tag is None:
+        tag = tag_for_code(code)
+    return ROLES.get(tag, "")
 
 
 def norm(code):

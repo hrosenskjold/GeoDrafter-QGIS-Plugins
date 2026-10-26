@@ -254,7 +254,10 @@ def group_profiles(points: List[SurveyPoint], method="auto", pattern=None, max_g
                       default "Profil"/"Profile", as in the Emlid code library)
       "name"        – section id from the point name (default pattern: "P12-03" → "P12")
       "description" – section id from the description ("P12", "Profil 12" → "12")
-      "auto"        – "attribute" when most section points carry it, else "name" when
+      "markers"     – by start/end codes (VASP: a section runs from its start point to its
+                      end point; points outside belong to no section)
+      "auto"        – "attribute" when most section points carry it, else "markers" when the
+                      survey has start and end codes, else "name" when
                       most names match, else by survey order: a new
                       section starts where the jump to the next point exceeds
                       ``max_gap`` metres.
@@ -270,8 +273,12 @@ def group_profiles(points: List[SurveyPoint], method="auto", pattern=None, max_g
         with_attr = sum(1 for p in section_pts if _attr_profile(p, attributes))
         rx = re.compile(pattern or DEFAULT_NAME_PATTERN)
         matched = sum(1 for p in pts if rx.match(p.name or ""))
+        starts = sum(1 for p in pts if getattr(p, "section_role", "") == "section_start")
+        ends = sum(1 for p in pts if getattr(p, "section_role", "") == "section_end")
         if attributes and section_pts and with_attr >= 0.6 * len(section_pts):
             method = "attribute"
+        elif starts >= 1 and ends >= 1:
+            method = "markers"
         else:
             method = "name" if pts and matched >= 0.6 * len(pts) else "order"
     groups: Dict[str, List[SurveyPoint]] = {}
@@ -292,6 +299,25 @@ def group_profiles(points: List[SurveyPoint], method="auto", pattern=None, max_g
                 groups.setdefault(m.group("profile"), []).append(p)
             else:
                 ungrouped.append(p)
+    elif method == "markers":
+        current = None
+        n = 0
+        for p in pts:
+            role = getattr(p, "section_role", "")
+            if role == "section_start":
+                if current:
+                    groups["%d" % n] = current
+                n += 1
+                current = [p]
+            elif current is not None:
+                current.append(p)
+                if role == "section_end":
+                    groups["%d" % n] = current
+                    current = None
+            else:
+                ungrouped.append(p)
+        if current:
+            groups["%d" % n] = current
     elif method == "order":
         current: List[SurveyPoint] = []
         n = 0
@@ -308,7 +334,7 @@ def group_profiles(points: List[SurveyPoint], method="auto", pattern=None, max_g
     for k in [k for k, v in groups.items() if len(v) < min_points]:
         ungrouped.extend(groups.pop(k))
     ungrouped.sort(key=lambda p: p.seq)
-    if method == "order":   # renumber 1..n after dropping small groups
+    if method in ("order", "markers"):   # renumber 1..n after dropping small groups
         groups = {"%d" % (i + 1): v for i, v in enumerate(groups.values())}
     return groups, ungrouped
 

@@ -17,9 +17,11 @@ codes:
 - code: PROFILSTARTV
   type: terrain
   description: 'VASP tag 100: first point of a cross-section, left side'
+  role: section_start
 - code: PROFILSTARTH
   type: terrain
   description: 'VASP tag 101: first point of a cross-section, right side'
+  role: section_start
 - code: PROFILPKT
   type: knick
   description: 'VASP tag 110: ordinary cross-section point'
@@ -50,6 +52,7 @@ codes:
 - code: PROFILSLUT
   type: terrain
   description: 'VASP tag 199: last point of a cross-section'
+  role: section_end
 - code: RORTILLOBV
   type: drain_outlet
   description: 'VASP tag 200: pipe inflow on the left, invert'
@@ -104,9 +107,9 @@ codes:
   type: water_level
   description: 'VASP tag 210: intermediate point, water level'
 - code: KNEKPKT
-  type: other
-  description: 'VASP tag 220: bend in the stream between cross-sections (elevation
-    not used)'
+  type: bed
+  description: 'VASP tag 220: break point along the stream between cross-sections,
+    on the bed'
 - code: BUNDPUNKT
   type: bed
   description: 'VASP tag 221: intermediate point on the bed'

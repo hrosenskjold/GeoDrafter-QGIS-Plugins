@@ -53,17 +53,40 @@ def saved_tables():
 
 
 class CodeMapDialog(QDialog):
-    COLUMN_TITLES = ("Code", "Description", "Point type", "Confidence", "Reason")
+    COLUMN_TITLES = ("Code", "Points", "Description", "Point type", "Confidence", "Reason")
+    TYPE_COL = 3
 
-    def __init__(self, parent=None, mapped=None, name="", base_table=None, extend=False):
+    def __init__(self, parent=None, mapped=None, name="", base_table=None, extend=False,
+                 fields=None, field=None, on_field=None, intro=""):
+        """``fields`` [(key, label)] + ``on_field(key) -> [MappedCode]``: a chooser for the field that holds
+        the codes (survey pop-up); ``intro`` is shown on top."""
         super().__init__(parent)
-        self.setWindowTitle(tr("Code table from a code list"))
-        self.resize(820, 520)
+        self.setWindowTitle(tr("Pair the survey codes") if fields else tr("Code table from a code list"))
+        self.resize(900, 560)
         self.mapped = list(mapped or [])
         self.base_table = base_table
         self.extend = extend           # True: add the codes to base_table instead of a new table
         self.saved_path = None
+        self.on_field = on_field
+        self.field = field
         v = QVBoxLayout(self)
+        if intro:
+            lab = QLabel(intro)
+            lab.setWordWrap(True)
+            v.addWidget(lab)
+        self.field_combo = None
+        if fields:
+            frow = QHBoxLayout()
+            frow.addWidget(QLabel(tr("The codes are in the field:")))
+            self.field_combo = QComboBox()
+            for key, label in fields:
+                self.field_combo.addItem(label, key)
+            i = self.field_combo.findData(field)
+            if i >= 0:
+                self.field_combo.setCurrentIndex(i)
+            self.field_combo.currentIndexChanged.connect(self._field_changed)
+            frow.addWidget(self.field_combo, 1)
+            v.addLayout(frow)
         top = QHBoxLayout()
         self.open_button = QPushButton(tr("Open code list…"))
         self.open_button.setToolTip(tr("CSV/TXT, Excel (.xlsx), an Emlid Flow code library or a GeoDrafter "
@@ -97,6 +120,12 @@ class CodeMapDialog(QDialog):
         self.fill()
 
     # -- data --------------------------------------------------------------------------------
+    def _field_changed(self, _i):
+        self.field = self.field_combo.currentData()
+        if self.on_field is not None:
+            self.mapped = list(self.on_field(self.field))
+            self.fill()
+
     def set_list(self, code_list):
         self.mapped = codemap.map_codes(code_list)
         if not self.name_edit.text() and code_list.source and code_list.source not in ("survey", "clipboard"):
@@ -123,19 +152,20 @@ class CodeMapDialog(QDialog):
         self.table.setRowCount(len(self.mapped))
         for r, m in enumerate(self.mapped):
             self.table.setItem(r, 0, QTableWidgetItem(m.row.code))
-            self.table.setItem(r, 1, QTableWidgetItem(m.row.description))
+            self.table.setItem(r, 1, QTableWidgetItem(str(m.row.count) if getattr(m.row, "count", 0) else ""))
+            self.table.setItem(r, 2, QTableWidgetItem(m.row.description))
             combo = QComboBox()
             for t in POINT_TYPES:
                 combo.addItem(tr(TYPE_LABELS[t]), t)
             combo.setCurrentIndex(POINT_TYPES.index(m.point_type) if m.point_type in POINT_TYPES else
                                   POINT_TYPES.index("other"))
             combo.currentIndexChanged.connect(lambda _i, row=r, c=combo: self._set_type(row, c.currentData()))
-            self.table.setCellWidget(r, 2, combo)
+            self.table.setCellWidget(r, self.TYPE_COL, combo)
             conf = QTableWidgetItem(tr(CONFIDENCE_LABELS[m.suggestion.confidence]))
             conf.setForeground(QBrush(QColor(CONFIDENCE_COLORS[m.suggestion.confidence])))
-            self.table.setItem(r, 3, conf)
-            self.table.setItem(r, 4, QTableWidgetItem(m.suggestion.reason))
-            for c in (0, 1, 3, 4):
+            self.table.setItem(r, 4, conf)
+            self.table.setItem(r, 5, QTableWidgetItem(m.suggestion.reason))
+            for c in (0, 1, 2, 4, 5):
                 it = self.table.item(r, c)
                 it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
         n = {k: sum(1 for m in self.mapped if m.suggestion.confidence == k) for k in CONFIDENCE_LABELS}

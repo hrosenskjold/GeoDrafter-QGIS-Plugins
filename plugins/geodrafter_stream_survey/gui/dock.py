@@ -28,7 +28,9 @@ STRUCTURE_COLUMNS = ("Name", "Code", "Type", "Station", "Offset", "Elevation", "
                      "Above bed", "Below water")
 GROUPING = (("auto", "Automatic"), ("attribute", "Section number in the code attribute (Profil)"),
             ("name", "Section number in the point name (P12-03)"),
-            ("description", "Section number in the description"), ("order", "Survey order and distance"))
+            ("description", "Section number in the description"),
+            ("markers", "Start and end codes (VASP: profile start … profile end)"),
+            ("order", "Survey order and distance"))
 
 
 def _layer_filter(kind):
@@ -154,6 +156,12 @@ class StreamSurveyDock(QDockWidget):
         self.layout_edit.setToolTip(tr("Columns of a text file, in order: name, x, y, z, code, description, "
                                        "or - to skip a column."))
         f.addRow(tr("Text columns:"), self.layout_edit)
+        self.code_field_combo = QComboBox()
+        self.code_field_combo.addItem(tr("Automatic (the field whose codes are recognised)"), "auto")
+        self.code_field_combo.setToolTip(tr("The field that holds the survey codes. Emlid's 'Code' may only "
+                                            "hold a number from the code library, while 'Code description' "
+                                            "holds the code itself (e.g. 13 / 13PROFILPKT)."))
+        f.addRow(tr("Code field:"), self.code_field_combo)
         row2 = QHBoxLayout()
         self.table_combo = QComboBox()
         self.table_combo.setToolTip(tr("Translates the survey codes to point types."))
@@ -454,6 +462,21 @@ class StreamSurveyDock(QDockWidget):
         return w
 
     # -- helpers ----------------------------------------------------------------------
+    def code_field(self):
+        return self.code_field_combo.currentData() or "auto"
+
+    def set_code_fields(self, fields, select=None):
+        """Fill the code-field choice after an import: Automatic + [(key, label)]."""
+        cur = select if select is not None else self.code_field()
+        self.code_field_combo.blockSignals(True)
+        self.code_field_combo.clear()
+        self.code_field_combo.addItem(tr("Automatic (the field whose codes are recognised)"), "auto")
+        for key, label in fields:
+            self.code_field_combo.addItem(label, key)
+        i = self.code_field_combo.findData(cur)
+        self.code_field_combo.setCurrentIndex(i if i >= 0 else 0)
+        self.code_field_combo.blockSignals(False)
+
     def survey_layer(self):
         """The chosen project point layer, or None (then the file is used)."""
         return self.layer_combo.currentLayer() if hasattr(self, "layer_combo") else None

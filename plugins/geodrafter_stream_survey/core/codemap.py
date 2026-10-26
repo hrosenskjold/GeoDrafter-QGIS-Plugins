@@ -86,6 +86,8 @@ class CodeRow:
     given_type: str = ""            # a point type stated in the list itself (our YAML), if any
     given_reason: str = ""          # why (e.g. the VASP tag), shown to the user
     given_sure: bool = True
+    count: int = 0                  # number of points with this code (codes from a survey)
+    given_role: str = ""
 
 
 @dataclass
@@ -95,6 +97,7 @@ class Suggestion:
     reason: str
     side: Optional[str] = None       # "left" / "right" for V/H, L/R variants
     base_code: str = ""              # the code without its side suffix
+    role: str = ""                   # section_start / section_end (VASP start/end codes)
 
 
 @dataclass
@@ -210,7 +213,8 @@ def vasp_code_list(text, source=""):
             out.rows.append(CodeRow(code, desc))
             continue
         typ, _side, sure, reason = c
-        out.rows.append(CodeRow(code, desc or reason.split("(", 1)[-1].rstrip(")"), typ, reason, sure))
+        out.rows.append(CodeRow(code, desc or reason.split("(", 1)[-1].rstrip(")"), typ, reason, sure,
+                                given_role=vasp.role(code, tag)))
     return out
 
 
@@ -260,7 +264,12 @@ def suggest(code, description=""):
     v = vasp.classify(code)
     if v is not None:
         typ, vside, sure, reason = v
-        return Suggestion(typ, SURE if sure else UNSURE, reason, vside, code.strip().upper())
+        return Suggestion(typ, SURE if sure else UNSURE, reason, vside, code.strip().upper(), vasp.role(code))
+    v = vasp.classify(description) if description and len(description.split()) == 1 else None
+    if v is not None:
+        typ, vside, sure, reason = v
+        return Suggestion(typ, SURE if sure else UNSURE, "the description '%s' is %s" % (description, reason),
+                          vside, code.strip().upper(), vasp.role(description))
     base, side = _strip(code)
     side = side or _side_of(code, description)
     hits = _desc_hits(description) if description else []
@@ -313,7 +322,8 @@ def map_codes(code_list):
     for r in code_list.rows:
         if r.given_type:
             s = Suggestion(r.given_type, SURE if r.given_sure else UNSURE,
-                           r.given_reason or "the type is given in the list", None, r.code.upper())
+                           r.given_reason or "the type is given in the list", None, r.code.upper(),
+                           r.given_role)
         else:
             s = suggest(r.code, r.description)
         out.append(MappedCode(r, s))
@@ -343,7 +353,8 @@ def build_table(name, mapped, description="", base=None, case_sensitive=False, p
                 continue
         if any(k.upper() == code.upper() for k in order):
             continue
-        entries[code] = CodeEntry(code, t, m.row.description, [], list(attrs_by_type.get(t, [])))
+        entries[code] = CodeEntry(code, t, m.row.description, [], list(attrs_by_type.get(t, [])),
+                                  m.suggestion.role)
         order.append(code)
     used_attrs = {a for e in entries.values() for a in e.attributes}
     defs = {k: v for k, v in base.attribute_defs.items() if k in used_attrs or k == base.profile_attribute}
@@ -364,6 +375,8 @@ def extend_table(table, mapped):
         if m.row.code.upper() in have:
             continue
         row = {"code": m.row.code, "type": m.point_type, "description": m.row.description}
+        if m.suggestion.role:
+            row["role"] = m.suggestion.role
         if attrs.get(m.point_type):
             row["attributes"] = list(attrs[m.point_type])
         d["codes"].append(row)
@@ -373,12 +386,20 @@ def extend_table(table, mapped):
 
 def unknown_codes(survey, table):
     """CodeRows for the codes of a survey that the table does not know (first description kept)."""
-    out, seen = [], set()
+    out, seen = [], {}
     for p in survey.points:
         c = (p.code or "").strip()
-        if c and table.lookup(c) is None and c.upper() not in seen:
-            seen.add(c.upper())
-            out.append(CodeRow(c, p.description))
+        if not c or table.lookup(c) is not None:
+            continue
+        if c.upper() in seen:
+            seen[c.upper()][1] += 1
+            continue
+        desc = p.code_description if p.code_description and p.code_description != c else p.description
+        row = CodeRow(c, desc)
+        seen[c.upper()] = [row, 1]
+        out.append(row)
+    for row, n in seen.values():
+        row.count = n
     return CodeList(out, "survey")
 
 
@@ -412,6 +433,8 @@ def vasp_table():
         names = vasp.NAMES[tag]
         rows.append({"code": names[0], "type": typ, "description": "VASP tag %d: %s" % (tag, what),
                      "aliases": names[1:]})
+        if vasp.ROLES.get(tag):
+            rows[-1]["role"] = vasp.ROLES[tag]
     base = standard_table()
     attrs = {}
     for e in base.entries:

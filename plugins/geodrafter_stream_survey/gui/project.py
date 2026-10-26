@@ -33,6 +33,9 @@ class SurveyState:
     code_table: object = None
     vasp_codes: list = field(default_factory=list)   # VASP codes paired automatically on import
     base_code_table: object = None                   # the chosen table before the VASP codes were added
+    code_column: object = None                       # field the codes were taken from (None = Code)
+    code_column_auto: bool = False                   # True when the plugin chose that field itself
+    code_columns: list = field(default_factory=list)  # fields that could hold the codes
     survey: object = None
     groups: dict = field(default_factory=dict)
     ungrouped: list = field(default_factory=list)
@@ -73,8 +76,13 @@ class SurveyState:
             self.structures = []
 
     # -- step 1 -----------------------------------------------------------------------
-    def run_import(self, path, code_table_path=None, kind=None, auto_vasp=True, reader=None, **options):
-        """Step 1. ``reader(code_table) -> Survey`` replaces the file readers (a layer in the project)."""
+    def run_import(self, path, code_table_path=None, kind=None, auto_vasp=True, reader=None,
+                   code_column="auto", **options):
+        """Step 1. ``reader(code_table) -> Survey`` replaces the file readers (a layer in the project).
+
+        ``code_column``: the field that holds the codes – "auto" (the field the code table and the VASP
+        codes know best), "" / "code" (the code column) or a field name."""
+        from ..core import codefield
         self._reset_from("import")
         self.code_table = codes.load_table(code_table_path) if code_table_path else codes.standard_table()
         if reader is None:
@@ -84,12 +92,21 @@ class SurveyState:
         self.path = path
         self.vasp_codes = []
         self.base_code_table = self.code_table
+        self.code_columns = codefield.candidate_columns(self.survey)
+        if code_column == "auto":
+            self.code_column, _share = codefield.best_column(self.survey, self.code_table)
+            self.code_column_auto = self.code_column is not None
+        else:
+            self.code_column, self.code_column_auto = (code_column or None), False
+        if self.code_column and self.code_column != codefield.CODE:
+            codefield.use_column(self.survey, self.code_column)
+            self.survey.apply_code_table(self.code_table)
         if auto_vasp and self.survey.points:
             from ..core.codemap import with_vasp_codes
             found = with_vasp_codes(self.survey, self.code_table)
             if found:
                 self.code_table, self.vasp_codes = found
-                self.survey = reader(self.code_table)
+                self.survey.apply_code_table(self.code_table)
         first = self.survey.points[0] if self.survey.points else None
         self.checks_by_step["import"] = [
             Check("warning", "reader", w, first.x if first else 0.0, first.y if first else 0.0)

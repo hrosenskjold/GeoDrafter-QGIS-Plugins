@@ -37,6 +37,7 @@ _REST_OK = re.compile(r"^[^A-Za-zÆØÅæøå]")
 # Point types measured in a cross-section: their codes get the table's profile
 # attribute (e.g. "Profil") in the Emlid code library, so sections group safely.
 SECTION_TYPES = ("bed", "bank_top", "bank_toe", "water_level", "terrain", "knick")
+ROLES = ("", "section_start", "section_end")
 # Emlid Flow code attribute types (docs.emlid.com, "Code libraries management")
 _ATTR_TYPE = re.compile(r"^(Number|Integer|Text|List \(.+\))$")
 
@@ -52,6 +53,7 @@ class CodeEntry:
     description: str = ""
     aliases: List[str] = field(default_factory=list)
     attributes: List[str] = field(default_factory=list)   # names from CodeTable.attribute_defs
+    role: str = ""          # "section_start" / "section_end": the code opens/closes a cross-section
 
 
 @dataclass
@@ -78,6 +80,9 @@ class CodeTable:
             if e.point_type not in POINT_TYPES:
                 raise CodeTableError("Unknown point type '%s' for code '%s' (allowed: %s)"
                                      % (e.point_type, e.code, ", ".join(POINT_TYPES)))
+            if e.role not in ROLES:
+                allowed = ", ".join(r for r in ROLES if r)
+                raise CodeTableError("Code '%s' has role '%s' (allowed: %s)" % (e.code, e.role, allowed))
             for a in e.attributes:
                 if a not in self.attribute_defs:
                     raise CodeTableError("Code '%s' uses undefined attribute '%s'" % (e.code, a))
@@ -139,6 +144,8 @@ class CodeTable:
                 r["aliases"] = list(e.aliases)
             if e.attributes:
                 r["attributes"] = list(e.attributes)
+            if e.role:
+                r["role"] = e.role
             rows.append(r)
         d["codes"] = rows
         return d
@@ -159,7 +166,7 @@ def table_from_dict(d, default_name="code table"):
             attrs = [a.strip() for a in attrs.split(",") if a.strip()]
         entries.append(CodeEntry(str(row["code"]).strip(), str(row["type"]).strip(),
                                  str(row.get("description") or ""), [str(a) for a in aliases],
-                                 [str(a) for a in attrs]))
+                                 [str(a) for a in attrs], str(row.get("role") or "").strip()))
     defs = d.get("attributes") or {}
     if not isinstance(defs, dict):
         raise CodeTableError("'attributes' must map attribute names to Emlid types")
