@@ -160,3 +160,16 @@ def test_project_import_pairs_vasp_codes(tmp_path):
     assert {p.point_type for p in st.survey.points} >= {"bank_top", "water_level", "terrain", "knick"}
     st.run_import(_vasp_survey(tmp_path), auto_vasp=False)
     assert st.vasp_codes == [] and st.code_table is st.base_code_table
+
+
+def test_builtin_vasp_table_is_in_sync_and_works(tmp_path):
+    from geodrafter_stream_survey.core.codemap import vasp_table
+    shipped = codes.load_table(codes.VASP_TABLE)
+    assert shipped.to_dict() == vasp_table().to_dict()            # regenerate vasp.yaml if this fails
+    assert shipped.lookup("PROFILPKTK").point_type == "bank_top"
+    assert shipped.lookup("profilkant").point_type == "bank_top"   # alias, any case
+    assert "Profil" in codes.emlid_library_csv(shipped).splitlines()[1]
+    # numbered VASPGPS codes are still paired on import when the VASP table is chosen
+    survey = read_survey(_vasp_survey(tmp_path), code_table=shipped)
+    t, mapped = with_vasp_codes(survey, shipped)
+    assert read_survey(_vasp_survey(tmp_path), code_table=t).points[1].point_type == "bank_top"

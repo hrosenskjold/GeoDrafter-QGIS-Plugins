@@ -398,6 +398,37 @@ def with_vasp_codes(survey, table, min_share=0.5):
     return t, mapped
 
 
+VASP_TABLE_NAME = "VASP codes (VASPGPS)"
+
+
+def vasp_table():
+    """The built-in VASP table: one code per VASP tag (VASPGPS's own names), other known names as aliases.
+
+    Numbered variants such as ``17ProfilKant`` are not listed; they are paired on import
+    (``with_vasp_codes``)."""
+    rows = []
+    for tag in sorted(vasp.NAMES):
+        typ, _side, _sure, what = vasp.TAGS[tag]
+        names = vasp.NAMES[tag]
+        rows.append({"code": names[0], "type": typ, "description": "VASP tag %d: %s" % (tag, what),
+                     "aliases": names[1:]})
+    base = standard_table()
+    attrs = {}
+    for e in base.entries:
+        attrs.setdefault(e.point_type, list(e.attributes))
+    for r in rows:
+        if attrs.get(r["type"]):
+            r["attributes"] = list(attrs[r["type"]])
+        if not r["aliases"]:
+            del r["aliases"]
+    d = {"name": VASP_TABLE_NAME,
+         "description": "VASP/VASPGPS field codes, typed by their VASP tag. Numbered variants of the names "
+                        "(e.g. 17ProfilKant) are recognised automatically on import.",
+         "case_sensitive": False, "prefix_match": True,
+         "attributes": dict(base.attribute_defs), "profile_attribute": base.profile_attribute, "codes": rows}
+    return table_from_dict(d, VASP_TABLE_NAME)
+
+
 def slug(name):
     s = re.sub(r"[^a-z0-9æøå]+", "_", (name or "").lower()).strip("_")
     return s.replace("æ", "ae").replace("ø", "oe").replace("å", "aa") or "code_table"

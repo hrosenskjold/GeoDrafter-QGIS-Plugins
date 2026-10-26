@@ -604,6 +604,10 @@
       <translation>GeoDrafter standard (engelsk)</translation>
     </message>
     <message>
+      <source>VASP codes (VASPGPS)</source>
+      <translation>VASP-koder (VASPGPS)</translation>
+    </message>
+    <message>
       <source>Terrain model</source>
       <translation>Terrænmodel</translation>
     </message>

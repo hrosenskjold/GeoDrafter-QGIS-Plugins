@@ -460,7 +460,8 @@ class StreamSurveyDock(QDockWidget):
         self.table_combo.clear()
         self.table_combo.addItem(tr("GeoDrafter standard"), codes.STANDARD_TABLE)
         self.table_combo.addItem(tr("GeoDrafter standard (English)"), codes.STANDARD_TABLE_EN)
-        paths = [codes.STANDARD_TABLE, codes.STANDARD_TABLE_EN]
+        self.table_combo.addItem(tr("VASP codes (VASPGPS)"), codes.VASP_TABLE)
+        paths = [codes.STANDARD_TABLE, codes.STANDARD_TABLE_EN, codes.VASP_TABLE]
         for name, path in saved_tables():
             self.table_combo.addItem(name, path)
             paths.append(path)
