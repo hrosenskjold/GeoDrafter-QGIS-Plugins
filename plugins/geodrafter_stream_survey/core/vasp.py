@@ -43,7 +43,7 @@ TAGS = {
     207: ("terrain", "right", True, "intermediate point, terrain on the right"),
     209: ("other", None, True, "intermediate point at the stream centre (elevation not used)"),
     210: ("water_level", None, True, "intermediate point, water level"),
-    220: ("bed", None, True, "break point along the stream between cross-sections, on the bed"),
+    220: ("other", None, True, "break point of the stream line between cross-sections (elevation not used)"),
     221: ("bed", None, True, "intermediate point on the bed"),
     231: ("other", "left", True, "other point on the left (text only)"),
     232: ("other", "right", True, "other point on the right (text only)"),
@@ -114,9 +114,18 @@ _OVERGANG = re.compile(r"^OVERGANG\d*$")
 
 _BY_NAME = {n: tag for tag, names in NAMES.items() for n in names}
 
-# VASP surveys a cross-section from its start point (tag 100/101) to its end point (tag 199);
-# the points in between are the section, points outside belong to no section.
-ROLES = {100: "section_start", 101: "section_start", 199: "section_end"}
+# How VASPGPS interprets the codes (VASPGPS manual, appendix 1):
+# * a cross-section runs from its start point (tag 100/101) to its end point (199); intermediate points
+#   (gauges, inflows, "other") measured in between are separate elements, not section points;
+# * the section line goes through the two edge marks (111), otherwise from start to end;
+# * the section's mid point is the mid-stream point (113), else the middle of the two edge marks,
+#   else the middle of start and end;
+# * the stream line joins, in survey order, the mid points of the sections and of pipes/manholes, the
+#   break points (220), bed points (221) and full intermediate points (209);
+# * KILL (992) cancels the object being measured back to its start.
+ROLES = {100: "section_start", 101: "section_start", 199: "section_end", 111: "edge", 113: "section_mid",
+         209: "centerline", 220: "centerline", 221: "centerline", 300: "centerline", 301: "centerline",
+         302: "centerline", 303: "centerline", 400: "centerline", 992: "kill"}
 
 
 def role(code, tag=None):

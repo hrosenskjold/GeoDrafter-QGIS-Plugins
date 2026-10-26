@@ -360,8 +360,8 @@
       <translation>Eget linjelag (fx regulativlinje eller en linje, du selv har tegnet)</translation>
     </message>
     <message>
-      <source>Build from the lowest bed point of each section</source>
-      <translation>Byg af det laveste bundpunkt i hvert profil</translation>
+      <source>Build from the survey (lowest bed point of each section; VASP: section mid points and break points)</source>
+      <translation>Byg ud fra opmålingen (laveste bundpunkt i hvert profil; VASP: profilernes midtpunkter og knækpunkter)</translation>
     </message>
     <message>
       <source>Line layer:</source>

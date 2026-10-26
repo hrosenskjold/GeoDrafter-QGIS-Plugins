@@ -27,6 +27,43 @@ STEPS = ("import", "centerline", "profiles", "terrain", "structures", "check", "
 STRUCTURE_TYPES = ("pipe_invert", "pipe_top", "bridge_deck", "weir_crest", "drain_outlet", "staff_gauge")
 
 
+def marker_checks(profiles, ungrouped):
+    """Notes on sections measured with start/end codes (VASPGPS), where a forgotten code joins or splits
+    sections: no end code, two mid-stream points, section points outside any section."""
+    out = []
+    for pr in profiles:
+        roles = [getattr(pp.point, "section_role", "") for pp in pr.points]
+        if "section_start" not in roles:
+            continue
+        if "section_end" not in roles:
+            out.append(Check("warning", "no_end_code", "Section %s has no end code – the next start code "
+                             "or the end of the file closed it." % pr.id, pr.x, pr.y, pr.id))
+        if roles.count("section_mid") > 1:
+            n = roles.count("section_mid")
+            out.append(Check("warning", "two_mid_points", "Section %s has %d mid-stream points – a start or "
+                             "end code may be missing, so two sections became one." % (pr.id, n),
+                             pr.x, pr.y, pr.id))
+    stray = [p for p in ungrouped if p.point_type in ("knick", "bank_top", "water_level", "bed")
+             and getattr(p, "section_role", "") not in ("centerline", "kill")]
+    if not (profiles and stray and any(getattr(pp.point, "section_role", "") for pr in profiles
+                                       for pp in pr.points)):
+        return out
+    runs = [[stray[0]]]
+    for p in stray[1:]:                       # one note per run of consecutive points
+        if p.seq == runs[-1][-1].seq + 1:
+            runs[-1].append(p)
+        else:
+            runs.append([p])
+    for run in runs:
+        a, b = run[0], run[-1]
+        names = a.name if a is b else "%s–%s" % (a.name, b.name)
+        out.append(Check("warning", "outside_section", "Point%s %s (%d section point%s) lie%s outside a "
+                         "section – after an end code or before a start code – and are not used."
+                         % ("" if a is b else "s", names, len(run), "" if a is b else "s",
+                            "s" if a is b else ""), a.x, a.y))
+    return out
+
+
 @dataclass
 class SurveyState:
     path: str = ""
@@ -214,6 +251,7 @@ class SurveyState:
             if "bank_top" not in types:
                 checks.append(Check("warning", "no_bank_top", "Section %s has no bank top." % pr.id,
                                     pr.x, pr.y, pr.id))
+        checks += marker_checks(self.profiles, ungrouped)
         if not self.profiles:
             checks.append(Check("error", "no_profiles", "No cross-sections found – check the grouping.",
                                 self.centerline.coords[0][0], self.centerline.coords[0][1]))

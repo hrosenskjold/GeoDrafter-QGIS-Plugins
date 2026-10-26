@@ -217,6 +217,9 @@ class GeoDrafterStreamSurveyPlugin:
         else:
             d.unknown_button.setText(tr("Unknown codes in the file…"))
         self.info(tr("%d points imported from %s.") % (len(s.points), os.path.basename(path)))
+        if sum(1 for p in s.points if p.section_role == "centerline") >= 2:
+            # a VASPGPS survey carries its own stream line (break points, bed points): use it, as VASPGPS does
+            d.cl_build.setChecked(True)
         if n_unknown and self.popup_codes:
             # the code pairing opens by itself when codes are unknown (after this step has finished)
             from qgis.PyQt.QtCore import QTimer

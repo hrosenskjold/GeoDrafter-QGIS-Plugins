@@ -214,19 +214,49 @@ def centerline_from_points(groups, ungrouped=()):
 
     One vertex per section in survey order: the lowest bed point, else the lowest
     knick point, else the middle between the outermost bank tops. With no
-    sections, the bed/knick points in survey order are used.
+    sections, the bed/knick points in survey order are used. For a VASPGPS survey
+    the section mid points and the stream-line points (break points, bed points,
+    pipes, manholes) are joined in survey order, as VASPGPS does.
     """
     verts = []
+    vasp_style = any(marker_axis(pts) is not None for pts in groups.values())
     for pts in groups.values():
-        v = _section_vertex(pts)
+        v = marker_midpoint(pts) if vasp_style and marker_axis(pts) is not None else _section_vertex(pts)
         if v is not None:
             verts.append((min(p.seq for p in pts), v))
+    if vasp_style:   # VASPGPS: break points, bed points, pipes and manholes join the stream line too
+        verts += [(p.seq, (p.x, p.y)) for p in ungrouped if getattr(p, "section_role", "") == "centerline"]
     verts.sort()
     coords = [v for _s, v in verts]
+    if len(coords) >= 3:
+        # a survey made in several stretches or on several days is not in stream order: then the
+        # vertices are chained by nearest neighbour, which gives the shorter (non zig-zag) line
+        chained = _chain(coords)
+        if _length(chained) < 0.8 * _length(coords):
+            coords = chained
     if len(coords) < 2:
         coords = [(p.x, p.y) for p in sorted(list(ungrouped) + [q for g in groups.values() for q in g],
                                              key=lambda p: p.seq) if _bed_like(p)]
     return Centerline(coords, source="surveyed sections")
+
+
+def _length(coords):
+    return sum(_dist(a, b) for a, b in zip(coords, coords[1:]))
+
+
+def _chain(coords):
+    """Vertices ordered by nearest neighbour, starting at the one farthest from their centre."""
+    cx = sum(c[0] for c in coords) / len(coords)
+    cy = sum(c[1] for c in coords) / len(coords)
+    rest = list(coords)
+    cur = max(rest, key=lambda c: _dist(c, (cx, cy)))
+    rest.remove(cur)
+    out = [cur]
+    while rest:
+        cur = min(rest, key=lambda c: _dist(c, out[-1]))
+        rest.remove(cur)
+        out.append(cur)
+    return out
 
 
 def _section_vertex(pts):
@@ -300,16 +330,21 @@ def group_profiles(points: List[SurveyPoint], method="auto", pattern=None, max_g
             else:
                 ungrouped.append(p)
     elif method == "markers":
+        # VASPGPS: start … end is one section; gauges, inflows and other single points measured in between
+        # are separate elements; KILL cancels the section being measured
         current = None
         n = 0
         for p in pts:
             role = getattr(p, "section_role", "")
+            if role == "kill":
+                current = None                       # the cancelled points belong to nothing
+                continue
             if role == "section_start":
                 if current:
                     groups["%d" % n] = current
                 n += 1
                 current = [p]
-            elif current is not None:
+            elif current is not None and p.point_type in SECTION_TYPES and role != "centerline":
                 current.append(p)
                 if role == "section_end":
                     groups["%d" % n] = current
@@ -394,6 +429,42 @@ def _principal_axis(pts):
     return (mx, my), (math.cos(ang), math.sin(ang))
 
 
+def marker_axis(pts):
+    """VASPGPS section line: through the two edge marks, otherwise from the start to the end point.
+    Returns (point, unit direction) or None when the section has no start/end codes."""
+    roles = [getattr(p, "section_role", "") for p in pts]
+    if "section_start" not in roles:
+        return None
+    edges = [p for p in pts if getattr(p, "section_role", "") == "edge"]
+    if len(edges) >= 2:
+        a, b = edges[0], edges[-1]
+    else:
+        a = pts[0]
+        ends = [p for p in pts if getattr(p, "section_role", "") == "section_end"]
+        b = ends[-1] if ends else pts[-1]
+    dx, dy = b.x - a.x, b.y - a.y
+    d = math.hypot(dx, dy)
+    if d < 1e-6:
+        return None
+    return (a.x, a.y), (dx / d, dy / d)
+
+
+def marker_midpoint(pts):
+    """VASPGPS section mid point: the mid-stream point, else between the edge marks, else between start
+    and end."""
+    mids = [p for p in pts if getattr(p, "section_role", "") == "section_mid"]
+    if mids:
+        return (mids[0].x, mids[0].y)
+    edges = [p for p in pts if getattr(p, "section_role", "") == "edge"]
+    if len(edges) >= 2:
+        return ((edges[0].x + edges[-1].x) / 2.0, (edges[0].y + edges[-1].y) / 2.0)
+    starts = [p for p in pts if getattr(p, "section_role", "") == "section_start"]
+    ends = [p for p in pts if getattr(p, "section_role", "") == "section_end"]
+    a = starts[0] if starts else pts[0]
+    b = ends[-1] if ends else pts[-1]
+    return ((a.x + b.x) / 2.0, (a.y + b.y) / 2.0)
+
+
 def section_station(centerline, pts):
     """Raw station where a section crosses the centre line.
 
@@ -410,14 +481,35 @@ def section_station(centerline, pts):
 
 
 def build_profile(centerline, pid, pts, tangent_window=DEFAULT_TANGENT_WINDOW, station=None):
-    """One cross-section from its points. ``station`` (with binding) overrides the computed one."""
+    """One cross-section from its points. ``station`` (with binding) overrides the computed one.
+
+    The section line is perpendicular to the centre line – except for sections measured with start/end
+    codes (VASPGPS), whose line follows the edge marks or start → end as VASPGPS does, so a section
+    measured at an angle keeps its true widths."""
+    axis = marker_axis(pts)
     if station is None:
-        raw, how = section_station(centerline, pts)
-        station = raw + centerline.station_shift
+        how = None
+        if axis is not None:
+            c, u = axis
+            hits = centerline.intersect(c, u)
+            if hits:
+                mx, my = marker_midpoint(pts)
+                ref = centerline.locate(mx, my, raw=True).station
+                station = min(hits, key=lambda h: abs(h - ref)) + centerline.station_shift
+                how = "section line"
+        if how is None:
+            raw, how = section_station(centerline, pts)
+            station = raw + centerline.station_shift
     else:
         how = "given"
     cx, cy = centerline.point_at(station)
     t = centerline.tangent_at(station, tangent_window)
+    if axis is not None:
+        u = axis[1]
+        t2 = (-u[1], u[0])                       # perpendicular to the section line …
+        if t2[0] * t[0] + t2[1] * t[1] < 0:      # … pointing downstream
+            t2 = (-t2[0], -t2[1])
+        t = t2
     nx, ny = Centerline.right_normal(t)
     out = []
     for p in pts:

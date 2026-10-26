@@ -197,7 +197,8 @@ class StreamSurveyDock(QDockWidget):
         f = QFormLayout(w)
         self.cl_inspire = QRadioButton(tr("Watercourse from INSPIRE Hydrography (Dataforsyningen, no token)"))
         self.cl_layer = QRadioButton(tr("Own line layer (e.g. regulation line or a line you drew)"))
-        self.cl_build = QRadioButton(tr("Build from the lowest bed point of each section"))
+        self.cl_build = QRadioButton(tr("Build from the survey (lowest bed point of each section; VASP: "
+                                        "section mid points and break points)"))
         self.cl_inspire.setChecked(True)
         g = QButtonGroup(w)
         for r in (self.cl_inspire, self.cl_layer, self.cl_build):

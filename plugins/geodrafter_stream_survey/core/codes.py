@@ -37,7 +37,8 @@ _REST_OK = re.compile(r"^[^A-Za-zÆØÅæøå]")
 # Point types measured in a cross-section: their codes get the table's profile
 # attribute (e.g. "Profil") in the Emlid code library, so sections group safely.
 SECTION_TYPES = ("bed", "bank_top", "bank_toe", "water_level", "terrain", "knick")
-ROLES = ("", "section_start", "section_end")
+# how a code takes part in building sections and the stream line (see vasp.py)
+ROLES = ("", "section_start", "section_end", "section_mid", "edge", "centerline", "kill")
 # Emlid Flow code attribute types (docs.emlid.com, "Code libraries management")
 _ATTR_TYPE = re.compile(r"^(Number|Integer|Text|List \(.+\))$")
 

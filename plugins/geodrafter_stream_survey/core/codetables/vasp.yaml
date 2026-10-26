@@ -30,6 +30,7 @@ codes:
   description: 'VASP tag 111: cross-section point with an edge mark (bank top)'
   aliases:
   - PROFILKANT
+  role: edge
 - code: VANDSPEJL
   type: water_level
   description: 'VASP tag 112: cross-section point that is also the water level'
@@ -38,6 +39,7 @@ codes:
   description: 'VASP tag 113: cross-section point in mid-stream'
   aliases:
   - PROFILMIDT
+  role: section_mid
 - code: PROFILPKTPPILLE
   type: knick
   description: 'VASP tag 114: cross-section point at a bridge pier'
@@ -103,18 +105,21 @@ codes:
     used)'
   aliases:
   - MIDTVANDLOB
+  role: centerline
 - code: MPVSP
   type: water_level
   description: 'VASP tag 210: intermediate point, water level'
 - code: KNEKPKT
-  type: bed
-  description: 'VASP tag 220: break point along the stream between cross-sections,
-    on the bed'
+  type: other
+  description: 'VASP tag 220: break point of the stream line between cross-sections
+    (elevation not used)'
+  role: centerline
 - code: BUNDPUNKT
   type: bed
   description: 'VASP tag 221: intermediate point on the bed'
   aliases:
   - BUNDKOTE
+  role: centerline
 - code: ANDETV
   type: other
   description: 'VASP tag 231: other point on the left (text only)'
@@ -154,6 +159,7 @@ codes:
   - Diameter_mm
   - Materiale
   - Retning
+  role: centerline
 - code: RORINDTOP
   type: pipe_top
   description: 'VASP tag 301: pipe/culvert inlet, top of pipe'
@@ -162,6 +168,7 @@ codes:
   attributes:
   - Diameter_mm
   - Materiale
+  role: centerline
 - code: RORUDBUND
   type: pipe_invert
   description: 'VASP tag 302: pipe/culvert outlet, invert'
@@ -171,6 +178,7 @@ codes:
   - Diameter_mm
   - Materiale
   - Retning
+  role: centerline
 - code: RORUDTOP
   type: pipe_top
   description: 'VASP tag 303: pipe/culvert outlet, top of pipe'
@@ -179,6 +187,7 @@ codes:
   attributes:
   - Diameter_mm
   - Materiale
+  role: centerline
 - code: RORSAND
   type: other
   description: 'VASP tag 304: pipe/culvert, sediment level'
@@ -198,6 +207,7 @@ codes:
   description: 'VASP tag 400: manhole, cover (terrain)'
   aliases:
   - BRONDDEKSEL
+  role: centerline
 - code: BRNBUND
   type: other
   description: 'VASP tag 401: manhole, bottom'
@@ -269,3 +279,4 @@ codes:
   type: other
   description: 'VASP tag 992: VASPGPS command: delete the current object (not a survey
     point)'
+  role: kill

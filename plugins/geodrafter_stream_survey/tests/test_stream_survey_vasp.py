@@ -224,7 +224,8 @@ def test_code_field_is_found_and_sections_follow_start_end(tmp_path):
     assert s.points[0].code == "12PROFILSTART_V" and s.points[0].extra["Code (file)"] == "12"
     types = [p.point_type for p in s.points]
     assert types[:8] == ["terrain", "bank_top", "knick", "water_level", "bed", "knick", "bank_top", "terrain"]
-    assert types[8:11] == ["bed"] * 3                                # 8KNEKPKT: bed points along the stream
+    assert types[8:11] == ["other"] * 3                              # 8KNEKPKT: stream-line break points
+    assert {p.section_role for p in s.points[8:11]} == {"centerline"}
     assert s.points[0].section_role == "section_start" and s.points[7].section_role == "section_end"
     groups, ungrouped = group_profiles(s.points)                     # auto → start/end codes
     assert [len(g) for g in groups.values()] == [8, 8]
@@ -236,3 +237,66 @@ def test_code_field_is_found_and_sections_follow_start_end(tmp_path):
     assert {r.code: r.count for r in rows}["13"] == 4
     m = {x.row.code: x for x in map_codes(unknown_codes(s, st.code_table))}
     assert m["17"].point_type == "bank_top" and "17PROFILKANT" in m["17"].suggestion.reason
+
+
+def _pt(seq, code, x, y, z, table):
+    from geodrafter_stream_survey.core.model import SurveyPoint
+    p = SurveyPoint(seq=seq, name=str(seq + 1), x=x, y=y, z=z, code=code)
+    e = table.lookup(code)
+    p.point_type, p.code_known = (e.point_type, True) if e else ("other", False)
+    p.section_role = e.role if e else ""
+    return p
+
+
+def test_vaspgps_section_rules():
+    """VASPGPS manual, appendix 1: section line through the edge marks, mid point, embedded single
+    points, KILL, and the stream line through mid points and break points."""
+    from geodrafter_stream_survey.core.geometry import (
+        build_profiles, centerline_from_points, group_profiles, marker_axis, marker_midpoint)
+    t = codes.load_table(codes.VASP_TABLE)
+    pts = []
+
+    def add(code, x, y, z):
+        pts.append(_pt(len(pts), code, x, y, z, t))
+
+    add("KNEKPKT", 0, -10, 1.0)                       # break point upstream
+    # section 1 measured at 45° to the stream (which runs along +y), from the left bank (x < 0)
+    add("PROFILSTARTV", -6, -6, 3.0)
+    add("PROFILPKTK", -4, -4, 2.8)                    # edge marks → the section line is the diagonal
+    add("PROFILPKT", -2, -2, 1.5)
+    add("RORTILLOBV", -1.5, -1.0, 1.2)                # an inflow measured inside the section
+    add("MIDTSTROMS", 0, 0, 0.5)
+    add("VANDSPEJL", 1.5, 1.5, 1.0)
+    add("PROFILPKTK", 4, 4, 2.8)
+    add("PROFILSLUT", 6, 6, 3.0)
+    add("KNEKPKT", 0, 10, 1.0)
+    # a section that was cancelled with KILL, then measured again
+    add("PROFILSTARTV", -5, 20, 3.0)
+    add("PROFILPKT", 0, 20, 2.0)
+    add("KILL", 0, 20, 2.0)
+    add("PROFILSTARTV", -5, 21, 3.0)
+    add("PROFILPKTK", -3, 21, 2.8)
+    add("PROFILPKT", 0, 21, 0.4)
+    add("PROFILPKTK", 3, 21, 2.8)
+    add("PROFILSLUT", 5, 21, 3.0)
+    add("KNEKPKT", 0, 30, 1.0)
+    groups, ungrouped = group_profiles(pts)
+    assert len(groups) == 2
+    g1, g2 = groups["1"], groups["2"]
+    assert [p.code for p in g1].count("RORTILLOBV") == 0          # the inflow is a single element
+    assert "RORTILLOBV" in [p.code for p in ungrouped]
+    assert [p.y for p in g2 if p.code == "PROFILSTARTV"] == [21]   # the cancelled attempt is gone
+    assert not any(p.y == 20 for p in ungrouped + g1 + g2)
+    (ax, ay), (ux, uy) = marker_axis(g1)
+    assert abs(ux - uy) < 1e-9                                    # along the diagonal (edge marks)
+    assert marker_midpoint(g1) == (0, 0)                          # the mid-stream point
+    assert marker_midpoint(g2) == (0, 21)                         # between the edge marks
+    cl = centerline_from_points(groups, ungrouped)
+    assert cl.coords[0] == (0, -10) and cl.coords[1] == (0, 0) and cl.coords[-1] == (0, 30)
+    profs = build_profiles(cl, groups)
+    p1 = profs[0]
+    assert p1.note == "section line"
+    assert max(abs(pp.along) for pp in p1.points) < 1e-6          # all points on their section line
+    offs = {pp.point.code: round(pp.offset, 3) for pp in p1.points}
+    assert offs["PROFILSTARTV"] == round(-6 * 2 ** 0.5, 3)        # true width along the skewed section
+    assert offs["PROFILSLUT"] == round(6 * 2 ** 0.5, 3)
