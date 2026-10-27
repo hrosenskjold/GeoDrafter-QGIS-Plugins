@@ -37,6 +37,7 @@ class CoordinatesPanel(QgsDockWidget):
     """Shows one position in every format. Emits ``go_requested(text)`` from the Go to field."""
 
     go_requested = pyqtSignal(str)
+    batch_requested = pyqtSignal()
 
     def __init__(self, rows, parent=None):
         """``rows`` = [(key, label)] in display order (see Readout.keys_and_labels)."""
@@ -128,6 +129,13 @@ class CoordinatesPanel(QgsDockWidget):
         self.copy_all_button.clicked.connect(self.copy_all)
         bottom.addWidget(self.copy_all_button)
         outer.addLayout(bottom)
+        self.batch_button = QPushButton(
+            _icon("/mActionAddPart.svg"), self.tr("Points and vertices…"), page)
+        self.batch_button.setToolTip(self.tr(
+            "Coordinates for all (or the selected) points of a layer, or every vertex of lines "
+            "and polygons – written to the attribute table, a new point layer or the clipboard"))
+        self.batch_button.clicked.connect(self.batch_requested)
+        outer.addWidget(self.batch_button)
         link_text = self.tr("Batch conversion: GeoDrafter coordinate converter")
         link = QLabel('<a href="%s">%s</a>' % (CONVERTER_URL, link_text), page)
         link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)

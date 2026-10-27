@@ -1,15 +1,15 @@
 [general]
 name=GeoDrafter Coordinate Finder and Converter
-qgisMinimumVersion=3.40
+qgisMinimumVersion=3.34
 qgisMaximumVersion=4.99
 supportsQt6=True
-description=Find and convert coordinates: read any map position in the map CRS, a CRS of your choice, decimal degrees, DMS, DDM, UTM and MGRS – or type a coordinate in any of these formats and go there.
-about=A coordinate finder and converter in one panel, with every format at once. Pick a position on the map (or let the panel follow the mouse) and read it in the map CRS, a CRS you choose, WGS84 decimal degrees, degrees-minutes-seconds, degrees-decimal-minutes, UTM (automatic zone including the Norway/Svalbard exceptions) and MGRS. Double click a row or press Ctrl+C to copy it, copy everything at once, or have a chosen format copied with every pick. The Go to field takes the same formats – also with N/S/E/W letters, decimal commas and UTM zone letters – centres the map there and marks the spot, so anything you copy can be pasted back. For converting many coordinates at once, the panel links to the free GeoDrafter coordinate converter (geodrafter.com/coordinate-converter/). Built for QGIS 4 (Qt6), also runs on QGIS 3.40.
+description=Find and convert coordinates: read any map position in the map CRS, a CRS of your choice, decimal degrees, DMS, DDM, UTM and MGRS – or type a coordinate in any of these formats and go there – also for every point or vertex of a layer at once.
+about=A coordinate finder and converter in one panel, with every format at once. Pick a position on the map (or let the panel follow the mouse) and read it in the map CRS, a CRS you choose, WGS84 decimal degrees, degrees-minutes-seconds, degrees-decimal-minutes, UTM (automatic zone including the Norway/Svalbard exceptions) and MGRS. Double click a row or press Ctrl+C to copy it, copy everything at once, or have a chosen format copied with every pick. The Go to field takes the same formats – also with N/S/E/W letters, decimal commas and UTM zone letters – centres the map there and marks the spot, so anything you copy can be pasted back. Points and vertices: get the coordinates of all (or the selected) points of a layer – written into its attribute table – or of every vertex of lines and polygons as a new point layer, or copy them as a table for a spreadsheet. For converting a list of coordinates, the panel links to the free GeoDrafter coordinate converter (geodrafter.com/coordinate-converter/). Built for QGIS 4 (Qt6), also runs on QGIS 3.34 and newer.
 version=1.0.0
 author=Henrik Rosenskjold (GISkon)
 email=contact@geodrafter.com
-changelog=1.0.0 (2026-10-19): First release – coordinate panel with map CRS, chosen CRS, DD, DMS, DDM, UTM and MGRS; pick or follow the mouse; copy one, all or on every pick; Go to a typed coordinate.
-tags=coordinates,coordinate,coordinate finder,coordinate converter,convert,crs,dms,ddm,utm,mgrs,go to,clipboard,qgis4,qt6
+changelog=1.0.0 (2026-10-27): First release – coordinate panel with map CRS, chosen CRS, DD, DMS, DDM, UTM and MGRS; pick or follow the mouse; copy one, all or on every pick; Go to a typed coordinate; coordinates for many points and vertices (attribute table, new point layer or clipboard). QGIS 3.34 and newer.
+tags=coordinates,coordinate,coordinate finder,coordinate converter,convert,crs,dms,ddm,utm,mgrs,go to,clipboard,vertices,points,attribute table,batch,qgis4,qt6
 homepage=https://geodrafter.com/qgis/coordinate-finder-and-converter/
 repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
 tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues

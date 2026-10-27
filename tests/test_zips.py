@@ -49,8 +49,10 @@ def test_zip_loads_in_qgis(qapp, tmp_path, name):
         iface = fake_iface(canvas, None)
         plugin = mod.classFactory(iface)
         plugin.initGui()
-        # tool + About (Share hidden: PUBLISH_AVAILABLE); Pro Trace sits in the Vector menu
-        assert len(iface.menu) + len(iface.vector_menu) == (3 if name == "geodrafter_pro_trace" else 2)
+        # tool + About (Share hidden: PUBLISH_AVAILABLE); Pro Trace sits in the Vector menu.
+        # Pro Trace adds Split, Coordinate Finder adds "points and vertices".
+        extra = {"geodrafter_pro_trace": 1, "geodrafter_coordinate_finder": 1}.get(name, 0)
+        assert len(iface.menu) + len(iface.vector_menu) == 2 + extra
         # Pro Trace has two tools (trace and split); the others one
         assert len(iface.pluginToolBar().actions()) == (2 if name == "geodrafter_pro_trace" else 1)
         plugin.unload()

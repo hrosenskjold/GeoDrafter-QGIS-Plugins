@@ -181,7 +181,7 @@ def test_plugin_flow(qapp):
     plugin = pkg.classFactory(iface)
     plugin.initGui()
     assert plugin.panel_action in iface.pluginToolBar().actions()
-    assert len(iface.menu) == 2                       # Coordinate Finder + About
+    assert len(iface.menu) == 3                       # Coordinate Finder + points/vertices + About
     plugin.panel_action.trigger()                     # opens the panel
     assert plugin.panel is not None and plugin.panel_action.isChecked()
 
@@ -215,3 +215,102 @@ def test_plugin_flow(qapp):
     plugin.unload()
     assert iface.menu == [] and plugin.panel is None
     assert iface.pluginToolBar().actions() == []
+
+
+# -- many points and vertices -------------------------------------------------------
+
+def _points_layer():
+    from qgis.core import QgsFeature, QgsGeometry, QgsPointXY, QgsVectorLayer
+    lyr = QgsVectorLayer("Point?crs=EPSG:25832&field=name:string(20)&field=lat:double", "pts", "memory")
+    feats = []
+    for name, (x, y) in (("a", (481751.237, 6311860.222)), ("b", (552000, 6320000))):
+        f = QgsFeature(lyr.fields())
+        f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, y)))
+        f.setAttributes([name, None])
+        feats.append(f)
+    lyr.dataProvider().addFeatures(feats)
+    return lyr
+
+
+@needs_qgis
+def test_write_coordinates_to_point_layer(qapp):
+    from qgis.core import QgsCoordinateReferenceSystem as Crs
+    from geodrafter_coordinate_finder import batch
+
+    lyr = _points_layer()
+    n = batch.write_to_layer(lyr, set(batch.FORMATS), Crs("EPSG:25832"))
+    assert n == 2 and lyr.isEditable()
+    names = [f.name() for f in lyr.fields()]
+    assert names == ["name", "lat", "x_25832", "y_25832", "lon", "lat_dms", "lon_dms",
+                     "lat_ddm", "lon_ddm", "utm", "mgrs"]          # existing "lat" reused, not duplicated
+    a = next(f for f in lyr.getFeatures() if f["name"] == "a")
+    assert abs(a["lat"] - 56.95) < 1e-6 and abs(a["lon"] - 8.7) < 1e-6
+    assert a["x_25832"] == 481751.237 and a["y_25832"] == 6311860.222
+    assert a["lat_dms"] == "56°57′00.00″N" and a["lon_ddm"] == "8°42.0000′E"
+    assert a["utm"] == "32V 481751 E 6311860 N" and a["mgrs"] == "32V MJ 81751 11860"
+    lyr.undoStack().undo()                                          # one edit command
+    assert [f.name() for f in lyr.fields()] == ["name", "lat"]
+
+    lyr.selectByExpression("\"name\" = 'b'")
+    assert batch.write_to_layer(lyr, {"mgrs"}, Crs("EPSG:4326"), selected_only=True) == 1
+    values = {f["name"]: f["mgrs"] for f in lyr.getFeatures()}
+    assert values == {"a": None, "b": "32V NJ 52000 20000"}
+
+    from qgis.core import QgsVectorLayer
+    lines = QgsVectorLayer("LineString?crs=EPSG:25832", "l", "memory")
+    with pytest.raises(ValueError):
+        batch.write_to_layer(lines, {"dd"}, Crs("EPSG:4326"))
+    with pytest.raises(ValueError):
+        batch.write_to_layer(_points_layer(), set(), Crs("EPSG:4326"))
+
+
+@needs_qgis
+def test_vertices_layer_and_table(qapp):
+    from qgis.core import QgsCoordinateReferenceSystem as Crs, QgsFeature, QgsGeometry, QgsVectorLayer
+    from geodrafter_coordinate_finder import batch
+
+    poly = QgsVectorLayer("MultiPolygon?crs=EPSG:25832", "fields", "memory")
+    f = QgsFeature()
+    f.setGeometry(QgsGeometry.fromWkt(
+        "MultiPolygon(((0 0,10 0,10 10,0 10,0 0),(2 2,3 2,3 3,2 2)),((20 0,30 0,25 5,20 0)))"))
+    poly.dataProvider().addFeatures([f])
+    out = batch.vertices_layer(poly, {"chosen", "utm"}, Crs("EPSG:25832"))
+    assert out.featureCount() == 4 + 3 + 3                          # closing vertices not repeated
+    assert [x.name() for x in out.fields()] == [
+        "src_fid", "part", "ring", "vertex", "x_25832", "y_25832", "utm"]
+    rows = sorted((g["part"], g["ring"], g["vertex"], g["x_25832"], g["y_25832"]) for g in out.getFeatures())
+    assert rows[0] == (0, 0, 0, 0.0, 0.0) and (0, 1, 2, 3.0, 3.0) in rows and (1, 0, 2, 25.0, 5.0) in rows
+    assert out.crs().authid() == "EPSG:25832"
+
+    table = batch.as_table(poly, {"dd"}, Crs("EPSG:4326")).splitlines()
+    assert table[0] == "fid\tpart\tring\tvertex\tlat\tlon" and len(table) == 11
+    pts = batch.as_table(_points_layer(), {"mgrs"}, Crs("EPSG:4326")).splitlines()
+    assert pts[0] == "fid\tmgrs" and pts[1].endswith("\t32V MJ 81751 11860")
+
+
+@needs_qgis
+def test_batch_dialog(qapp):
+    from qgis.core import QgsCoordinateReferenceSystem as Crs, QgsProject, QgsVectorLayer
+    from qgis.PyQt.QtGui import QGuiApplication
+    from geodrafter_coordinate_finder.batch_dialog import BatchDialog, TABLE, VERTICES, WRITE
+
+    project = QgsProject.instance()
+    pts = _points_layer()
+    lines = QgsVectorLayer("LineString?crs=EPSG:25832", "roads", "memory")
+    project.addMapLayers([pts, lines])
+    try:
+        dlg = BatchDialog(Crs("EPSG:25832"), pts)
+        assert dlg.choice() == WRITE and dlg.out_write.isEnabled()
+        assert dlg.formats() == {"chosen", "dd"} and "EPSG:25832" in dlg.format_boxes["chosen"].text()
+        dlg.layer_box.setLayer(lines)
+        assert not dlg.out_write.isEnabled() and dlg.choice() == VERTICES
+        dlg.layer_box.setLayer(pts)
+        dlg.out_table.setChecked(True)
+        assert dlg.choice() == TABLE
+        message = dlg.run()
+        assert "2 row(s)" in message and QGuiApplication.clipboard().text().startswith("fid\tx_25832")
+        for box in dlg.format_boxes.values():
+            box.setChecked(False)
+        assert not dlg.ok_button.isEnabled()
+    finally:
+        project.removeMapLayers([pts.id(), lines.id()])

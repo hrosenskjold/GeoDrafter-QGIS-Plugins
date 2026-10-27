@@ -51,7 +51,9 @@ class GeoDrafterCoordinateFinderPlugin:
         self.panel_action.toggled.connect(self.show_panel)
         about = QAction(tr("About GeoDrafter Coordinate Finder and Converter"), window)
         about.triggered.connect(lambda: show_about(window, self.plugin_dir))
-        entries = [self.panel_action]
+        batch_action = QAction(tr("Coordinates for points and vertices…"), window)
+        batch_action.triggered.connect(self.open_batch)
+        entries = [self.panel_action, batch_action]
         if PUBLISH_AVAILABLE:
             share = QAction(tr("Share as web map…"), window)
             share.triggered.connect(lambda: share_as_web_map(self.iface, PLUGIN_NAME))
@@ -106,6 +108,7 @@ class GeoDrafterCoordinateFinderPlugin:
         self.panel.pick_button.toggled.connect(self.set_picking)
         self.panel.follow_button.toggled.connect(self._follow_toggled)
         self.panel.go_requested.connect(self.go_to)
+        self.panel.batch_requested.connect(self.open_batch)
         self.panel.visibilityChanged.connect(self._panel_visibility)
 
         self.tool = PickTool(canvas)
@@ -178,6 +181,18 @@ class GeoDrafterCoordinateFinderPlugin:
             copied = self.panel.copy_key(key)
             if copied:
                 self.iface.messageBar().pushInfo(PLUGIN_NAME, tr("Copied {}").format(copied))
+
+    def open_batch(self):
+        """Dialog for many points/vertices; uses the CRS chosen in the panel (remembered setting)."""
+        from .batch_dialog import open_dialog
+
+        if self.readout is not None:
+            chosen = self.readout.chosen_crs
+        else:
+            chosen = QgsCoordinateReferenceSystem(QgsSettings().value(SETTING_CRS, "EPSG:4326", type=str))
+            if not chosen.isValid():
+                chosen = QgsCoordinateReferenceSystem("EPSG:4326")
+        return open_dialog(self.iface, chosen, PLUGIN_NAME)
 
     def go_to(self, text):
         from .readout import locate
