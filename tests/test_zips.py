@@ -27,6 +27,10 @@ def test_zip_contents(tmp_path, name):
                      "geodrafter_common/__init__.py", "geodrafter_common/share.py"):
         assert "%s/%s" % (name, required) in names
     assert not any("/tests/" in n or n.endswith(".pyc") for n in names)
+    # A file and a folder of the same name cannot both be unpacked (29/10: on a Windows checkout the
+    # geodrafter_common symlink is a small text file and went into the zip next to the real package).
+    folders = {n.rsplit("/", 1)[0] for n in names if "/" in n}
+    assert not [n for n in names if n in folders], "file and folder with the same name"
 
 
 @needs_qgis
@@ -50,8 +54,10 @@ def test_zip_loads_in_qgis(qapp, tmp_path, name):
         plugin = mod.classFactory(iface)
         plugin.initGui()
         # tool + About (Share hidden: PUBLISH_AVAILABLE); Pro Trace sits in the Vector menu.
-        # Pro Trace adds Split, Coordinate Finder adds "points and vertices".
-        extra = {"geodrafter_pro_trace": 1, "geodrafter_coordinate_finder": 1}.get(name, 0)
+        # Pro Trace adds Split, Coordinate Finder "points and vertices", 3D View "Stop" (the ground is
+        # chosen in the 3D view since block 17), Pro Swipe "keep the swipe on release".
+        extra = {"geodrafter_pro_trace": 1, "geodrafter_coordinate_finder": 1,
+                 "geodrafter_3d_view": 1, "geodrafter_pro_swipe": 1}.get(name, 0)
         assert len(iface.menu) + len(iface.vector_menu) == 2 + extra
         # Pro Trace has two tools (trace and split); the others one
         assert len(iface.pluginToolBar().actions()) == (2 if name == "geodrafter_pro_trace" else 1)

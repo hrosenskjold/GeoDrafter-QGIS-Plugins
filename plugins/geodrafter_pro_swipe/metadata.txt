@@ -1,0 +1,21 @@
+[general]
+name=GeoDrafter Pro Swipe
+qgisMinimumVersion=3.34
+qgisMaximumVersion=4.99
+description=ArcGIS Pro-style swipe: select a layer and drag in the map to peel it back and see what is underneath – vertically or horizontally, no setup.
+about=Select one or more layers (or a group) in the Layers panel, click Pro Swipe and drag in the map. Start near the top or bottom of the map to swipe vertically, near the left or right side to swipe horizontally – the cursor arrow shows the direction, as in ArcGIS Pro. The selected layers are pulled back from that edge to the cursor, and everything underneath shows exactly as QGIS would draw it with the layers switched off: transparency, blend modes and labels included. Works with any layer type – raster, vector, WMS/XYZ tiles, mesh, point clouds. Release the mouse and the layer is back; switch on "keep the swipe on release" to leave the swipe on the map, drag its edge to move it and press Esc to clear it. Mouse wheel, middle button and space bar navigate as usual while swiping. Built for QGIS 4 (Qt6), also runs on QGIS 3.34 and newer.
+version=1.0.0
+author=Henrik Rosenskjold (GISkon)
+email=contact@geodrafter.com
+changelog=1.0.0 (2026-11-19): First release.
+tags=swipe,compare,layer swipe,curtain,before after,raster,orthophoto,imagery,arcgis pro,qgis4,qt6
+homepage=https://geodrafter.com/qgis/pro-swipe/
+repository=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins
+tracker=https://github.com/hrosenskjold/GeoDrafter-QGIS-Plugins/issues
+category=Plugins
+icon=icon.svg
+experimental=False
+deprecated=False
+license=GPL-2.0-or-later
+hasProcessingProvider=no
+server=False

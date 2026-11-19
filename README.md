@@ -6,6 +6,7 @@ built for QGIS 4 (Qt6) and also running on QGIS 3.40:
 | Plugin | What it does | Page |
 |---|---|---|
 | GeoDrafter Pro Trace | ArcGIS Pro-style tracing along all visible layers, no snapping setup | https://geodrafter.com/qgis/pro-trace/ |
+| GeoDrafter Pro Swipe | ArcGIS Pro-style swipe: drag in the map to peel a layer back and see what is underneath | https://geodrafter.com/qgis/pro-swipe/ |
 | GeoDrafter Measure | Geodesic distance, area and radius, saved as a layer | https://geodrafter.com/qgis/measure/ |
 | GeoDrafter Coordinate Finder and Converter | Positions in any CRS, DD, DMS, DDM, UTM and MGRS; go to a typed coordinate | https://geodrafter.com/qgis/coordinate-finder-and-converter/ |
 | GeoDrafter Stream Survey (experimental) | Stream cross-section surveys from Emlid Flow and other GNSS files: stationing, profiles, terrain extension from the Danish elevation model, export | https://geodrafter.com/qgis/stream-survey/ |

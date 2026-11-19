@@ -51,6 +51,10 @@ def build(name, plugins_dir, common_dir, dist_dir, license_file=None):
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in _walk(src):
             arc = os.path.join(name, os.path.relpath(path, src)).replace(os.sep, "/")
+            if arc == name + "/geodrafter_common":
+                # The symlink, checked out as a small text file where git has no symlinks (Windows);
+                # the real package is added below.
+                continue
             zf.write(path, arc)
             seen.add(arc)
         common_arc = name + "/geodrafter_common/"
